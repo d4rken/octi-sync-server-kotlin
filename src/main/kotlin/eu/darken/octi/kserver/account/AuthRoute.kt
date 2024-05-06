@@ -44,13 +44,10 @@ class AuthRoute @Inject constructor(
         log(TAG) { "register($callInfo): deviceId=$deviceId, shareCode=$shareCode" }
 
         if (deviceId == null) {
-            log(TAG, WARN) { "register($callInfo): 400 Bad request, missing header ID" }
+            log(TAG, WARN) { "register($callInfo): Missing header ID" }
             call.respond(HttpStatusCode.BadRequest, "X-Device-ID header is missing")
             return
         }
-
-        val credentials = this.deviceCredentials
-        log(TAG, VERBOSE) { "register($callInfo): credentials=$credentials" }
 
         // Check if this device is already registered
         var device = deviceRepo.getDevice(deviceId)
@@ -60,6 +57,9 @@ class AuthRoute @Inject constructor(
             return
         }
 
+        val credentials = this.deviceCredentials
+        log(TAG, VERBOSE) { "register($callInfo): credentials=$credentials" }
+
         // At this point there is no device registered with $deviceId yet
         var account = credentials?.let { accountRepo.getAccount(it.accountId) }
         if (account != null) log(TAG) { "register($callInfo): Found matching account: $account" }
@@ -68,32 +68,38 @@ class AuthRoute @Inject constructor(
         if (shareCode != null) {
             if (account == null) {
                 log(TAG, WARN) { "register($callInfo): Can't use shareId, no account provided" }
-                call.respond(HttpStatusCode.BadRequest, "Unknown account")
+                call.respond(HttpStatusCode.BadRequest, "Account is missing")
                 return
             }
 
-            val share = shareRepo.resolveCode(shareCode)
+            val share = shareRepo.getShare(shareCode)
             if (share == null) {
                 log(TAG, WARN) { "register($callInfo): Could not resolve ShareCode" }
                 call.respond(HttpStatusCode.Forbidden, "Invalid ShareCode")
                 return
             }
+
             if (share.accountId != credentials?.accountId) {
                 log(TAG, WARN) { "register($callInfo): Share invalid, account ID mismatch" }
                 call.respond(HttpStatusCode.Forbidden, "Invalid account")
                 return
             }
 
-            log(TAG, INFO) { "register($callInfo): Share was valid and matches account, let's add the device" }
+            if (shareRepo.consumeShare(shareCode)) {
+                log(TAG, INFO) { "register($callInfo): Share was valid and matches account, let's add the device" }
+            } else {
+                log(TAG, ERROR) { "register($callInfo): Failed to consume Share" }
+                call.respond(HttpStatusCode.InternalServerError, "ShareCode was already consumed")
+                return
+            }
         } else {
-            // No ShareCode, can we create a new account?
             if (credentials != null) {
                 log(TAG, WARN) { "register($callInfo): Credentials provided but no ShareCode" }
-                call.respond(HttpStatusCode.BadRequest, "Provide ShareCode if you provide credentials")
+                call.respond(HttpStatusCode.BadRequest, "ShareCode required if credentials are provided")
                 return
             }
 
-            log(TAG, INFO) { "register($callInfo): No ShareCode and Account does not exist, create one and add device" }
+            log(TAG, INFO) { "register($callInfo): No ShareCode and Account does not exist, create one" }
             account = accountRepo.createAccount()
         }
 
@@ -107,7 +113,7 @@ class AuthRoute @Inject constructor(
             password = device.password,
         )
         call.respond(response).also {
-            log(TAG, INFO) { "register($callInfo): Device registered $account - $device" }
+            log(TAG, INFO) { "register($callInfo): Device registered $device to $account" }
         }
     }
 

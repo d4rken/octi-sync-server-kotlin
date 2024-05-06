@@ -1,16 +1,24 @@
 package eu.darken.octi.kserver.account
 
+import eu.darken.octi.kserver.Application
+import eu.darken.octi.kserver.common.AccountStorage
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AccountRepo @Inject constructor() {
+class AccountRepo @Inject constructor(
+    private val storageFactory: AccountStorage.Factory,
+) {
 
+    private val path = File(Application.dataPath, "accounts").also {
+
+    }
     private val accounts = mutableSetOf<Account>()
     private val mutex = Mutex()
     suspend fun createAccount(): Account = mutex.withLock {
