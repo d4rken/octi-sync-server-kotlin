@@ -1,9 +1,9 @@
 package eu.darken.octi.kserver.account
 
-import java.time.Instant
-import java.util.*
+import kotlinx.coroutines.sync.Mutex
 
 data class Account(
-    val id: String = UUID.randomUUID().toString(),
-    val createdAt: Instant = Instant.now(),
-)
+    val data: AccountData,
+    val sync: Mutex = Mutex(),
+) {
+}

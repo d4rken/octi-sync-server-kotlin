@@ -6,7 +6,6 @@ import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -22,7 +21,6 @@ class AccountRepo @Inject constructor(
     private val serializer = Json {
         ignoreUnknownKeys = true
     }
-
 
     init {
         val accountDirs = accountsPath.listFiles()
@@ -40,19 +38,19 @@ class AccountRepo @Inject constructor(
             }
             .map { File(it, ACC_FILENAME) }
             .forEach { accFile ->
-                val account: Account = accFile.readAccount()
+                val account: AccountData = accFile.readAccount()
                 log(TAG) { "Account info loaded: $account" }
                 accounts[account.id] = account
             }
     }
 
-    private fun File.readAccount(): Account {
-        return serializer.decodeFromString<Account>(this.readText()).also {
+    private fun File.readAccount(): AccountData {
+        return serializer.decodeFromString<AccountData>(this.readText()).also {
             log(TAG, VERBOSE) { "Account read: $it" }
         }
     }
 
-    private fun Account.writeToFile() {
+    private fun AccountData.writeToFile() {
         val accountDir = File(accountsPath, id).apply { mkdirs() }
         File(accountDir, ACC_FILENAME).writeText(serializer.encodeToString(this)).also {
             log(TAG, VERBOSE) { "Account written: $it" }
@@ -62,7 +60,7 @@ class AccountRepo @Inject constructor(
     suspend fun createAccount(): Account = mutex.withLock {
         log(TAG) { "createAccount(): Creating account..." }
 
-        val acc = Account()
+        val acc = AccountData()
         if (accounts.containsKey(acc.id)) throw IllegalStateException("Account ID collision???")
         accounts[acc.id] = acc
         acc.writeToFile()
@@ -71,11 +69,10 @@ class AccountRepo @Inject constructor(
     }
 
     suspend fun getAccount(id: String): Account? = mutex.withLock {
-        accounts.singleOrNull { it.id == id }.also {
+        accounts[id].also {
             log(TAG, VERBOSE) { "getAccount($id) -> $it" }
         }
     }
-
 
     companion object {
         private const val ACC_FILENAME = "accounts.json"
