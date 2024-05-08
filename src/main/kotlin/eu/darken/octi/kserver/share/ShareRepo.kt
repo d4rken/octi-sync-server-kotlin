@@ -1,5 +1,6 @@
-package eu.darken.octi.kserver.account
+package eu.darken.octi.kserver.share
 
+import eu.darken.octi.kserver.account.Share
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag

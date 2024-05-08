@@ -1,6 +1,6 @@
 package eu.darken.octi.kserver
 
-import eu.darken.octi.kserver.account.AuthRoute
+import eu.darken.octi.kserver.account.AccountRoute
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 class Router @Inject constructor(
     private val statusRoute: StatusRoute,
-    private val authRoute: AuthRoute,
+    private val authRoute: AccountRoute,
 ) {
 
     @Suppress("ExtractKtorModule")
