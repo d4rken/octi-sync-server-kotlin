@@ -19,7 +19,7 @@ class AccountRepo @Inject constructor(
     private val serializer: Json,
 ) {
     private val accountsPath = File(Application.dataPath, "accounts").apply {
-        if (mkdir()) log(TAG) { "Created $this" }
+        if (mkdirs()) log(TAG) { "Created $this" }
     }
     private val accounts = mutableMapOf<String, Account>()
     private val mutex = Mutex()

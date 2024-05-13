@@ -41,13 +41,6 @@ class AccountRoute @Inject constructor(
                 }
             }
         }
-        rootRoute.post("$BASE_PATH/share") {
-            try {
-                handleShare()
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, "Share link creation failed")
-            }
-        }
     }
 
     private suspend fun RoutingContext.handleCreate() {
@@ -164,25 +157,6 @@ class AccountRoute @Inject constructor(
         call.respond(HttpStatusCode.OK).also {
             log(TAG, INFO) { "delete($callInfo): Account was deleted: ${device.accountId}" }
         }
-    }
-
-    private suspend fun RoutingContext.handleShare() {
-        val deviceId = call.request.header("X-Device-ID")
-        log(TAG) { "share($callInfo): deviceId=$deviceId" }
-
-        if (deviceId == null) {
-            log(TAG, WARN) { "share($callInfo): 400 Bad request, missing header ID" }
-            call.respond(HttpStatusCode.BadRequest, "X-Device-ID header is missing")
-            return
-        }
-
-        // Check credentials
-
-        // Get matching account
-
-        // Generate share code for account
-
-        // return ShareCode
     }
 
     companion object {

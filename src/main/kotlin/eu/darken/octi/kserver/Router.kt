@@ -1,6 +1,11 @@
 package eu.darken.octi.kserver
 
 import eu.darken.octi.kserver.account.AccountRoute
+import eu.darken.octi.kserver.common.debug.logging.Logging
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.log
+import eu.darken.octi.kserver.common.debug.logging.logTag
+import eu.darken.octi.kserver.share.ShareRoute
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -18,6 +23,7 @@ import javax.inject.Inject
 class Router @Inject constructor(
     private val statusRoute: StatusRoute,
     private val authRoute: AccountRoute,
+    private val shareRoute: ShareRoute,
 ) {
 
     @Suppress("ExtractKtorModule")
@@ -40,10 +46,16 @@ class Router @Inject constructor(
             }
             statusRoute.setup(this)
             authRoute.setup(this)
+            shareRoute.setup(this)
         }
     }
 
     fun start() {
+        log(TAG, INFO) { "Router is starting..." }
         server.start(wait = true)
+    }
+
+    companion object {
+        private val TAG = logTag("Router")
     }
 }
