@@ -12,12 +12,14 @@ data class Account(
     val path: File,
     val sync: Mutex = Mutex(),
 ) {
-    val id: String
+    val id: AccountId
         get() = data.id
 
     @Serializable
     data class Data(
-        val id: String = UUID.randomUUID().toString(),
+        @Contextual val id: AccountId = UUID.randomUUID(),
         @Contextual val createdAt: Instant = Instant.now(),
     )
 }
+
+typealias AccountId = UUID

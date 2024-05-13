@@ -1,15 +1,16 @@
 package eu.darken.octi.kserver.account
 
+import eu.darken.octi.kserver.account.share.ShareRepo
 import eu.darken.octi.kserver.common.callInfo
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
+import eu.darken.octi.kserver.common.headerDeviceId
+import eu.darken.octi.kserver.common.verifyAuth
 import eu.darken.octi.kserver.device.DeviceRepo
 import eu.darken.octi.kserver.device.deviceCredentials
-import eu.darken.octi.kserver.share.ShareRepo
 import io.ktor.http.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import javax.inject.Inject
@@ -24,7 +25,7 @@ class AccountRoute @Inject constructor(
 
     fun setup(rootRoute: RootRoute) {
         rootRoute.route("/v1/account") {
-            post {
+            this.post {
                 try {
                     handleCreate()
                 } catch (e: Exception) {
@@ -44,7 +45,7 @@ class AccountRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.handleCreate() {
-        val deviceId = call.request.header("X-Device-ID")
+        val deviceId = call.headerDeviceId
         val shareCode = call.request.queryParameters["share"]
 
         log(TAG) { "create($callInfo): deviceId=$deviceId, shareCode=$shareCode" }
@@ -124,32 +125,7 @@ class AccountRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.handleDelete() {
-        val deviceId = call.request.header("X-Device-ID")
-
-        log(TAG) { "delete($callInfo): deviceId=$deviceId" }
-
-        if (deviceId == null) {
-            log(TAG, WARN) { "delete($callInfo): Missing header ID" }
-            call.respond(HttpStatusCode.BadRequest, "X-Device-ID header is missing")
-            return
-        }
-
-        // Check if this device is authorized
-        var device = deviceRepo.getDevice(deviceId)
-        if (device == null) {
-            log(TAG, WARN) { "delete($callInfo): Unknown device" }
-            call.respond(HttpStatusCode.Unauthorized, "Device not found")
-            return
-        }
-
-        val credentials = this.deviceCredentials
-        log(TAG, VERBOSE) { "delete($callInfo): credentials=$credentials" }
-
-        if (credentials == null) {
-            log(TAG, WARN) { "delete($callInfo): Missing credentials device" }
-            call.respond(HttpStatusCode.Unauthorized, "Missing credentials")
-            return
-        }
+        val device = verifyAuth(TAG, deviceRepo) ?: return
 
         log(TAG, INFO) { "delete(${callInfo}): User is authorized, deleting account..." }
         accountRepo.deleteAccount(device.accountId)
@@ -160,7 +136,6 @@ class AccountRoute @Inject constructor(
     }
 
     companion object {
-        private const val BASE_PATH = "/v1/account"
-        private val TAG = logTag("Account", "AuthRoute")
+        private val TAG = logTag("Account", "Route")
     }
 }

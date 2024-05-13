@@ -11,6 +11,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,7 +22,7 @@ class AccountRepo @Inject constructor(
     private val accountsPath = File(Application.dataPath, "accounts").apply {
         if (mkdirs()) log(TAG) { "Created $this" }
     }
-    private val accounts = mutableMapOf<String, Account>()
+    private val accounts = mutableMapOf<UUID, Account>()
     private val mutex = Mutex()
 
     init {
@@ -61,10 +62,9 @@ class AccountRepo @Inject constructor(
         val accData = Account.Data()
         if (accounts.containsKey(accData.id)) throw IllegalStateException("Account ID collision???")
 
-        log(TAG) { "createAccount(): Account created: $accData" }
         val account = Account(
             data = accData,
-            path = File(accountsPath, accData.id)
+            path = File(accountsPath, accData.id.toString())
         )
 
         account.path.run {
@@ -73,26 +73,29 @@ class AccountRepo @Inject constructor(
             log(TAG, VERBOSE) { "Account written to $this" }
         }
         accounts[accData.id] = account
-        account
+        account.also {
+            log(TAG, INFO) { "createAccount(): Account created: $accData" }
+        }
     }
 
-    suspend fun getAccount(id: String): Account? = mutex.withLock {
+    suspend fun getAccount(id: UUID): Account? = mutex.withLock {
         accounts[id].also {
             log(TAG, VERBOSE) { "getAccount($id) -> $it" }
         }
     }
 
-    suspend fun deleteAccount(id: String) = mutex.withLock {
-        log(TAG, INFO) { "deleteAccount($id)" }
+    suspend fun deleteAccount(id: UUID) = mutex.withLock {
+        log(TAG) { "deleteAccount($id)..." }
         val account = accounts.remove(id) ?: throw IllegalArgumentException("Unknown account")
         val accountDir = account.path
         if (!accountDir.deleteRecursively()) {
             log(TAG, ERROR) { "Failed to delete account directory: $accountDir" }
             val accountConfig = File(account.path, ACC_FILENAME)
             if (accountConfig.exists() || accountConfig.delete()) {
-                log(TAG, INFO) { "Deleted account file, will clean up on next restart." }
+                log(TAG, WARN) { "Deleted account file, will clean up on next restart." }
             }
         }
+        log(TAG, INFO) { "deleteAccount($id): Account deleted: $account" }
     }
 
     suspend fun getAllAccounts(): List<Account> = mutex.withLock {

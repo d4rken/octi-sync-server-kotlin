@@ -22,7 +22,7 @@ class DeviceRepo @Inject constructor(
     private val accountsRepo: AccountRepo,
 ) {
 
-    private val devices = mutableMapOf<String, Device>()
+    private val devices = mutableMapOf<DeviceId, Device>()
     private val mutex = Mutex()
 
     init {
@@ -82,7 +82,7 @@ class DeviceRepo @Inject constructor(
         return device
     }
 
-    suspend fun getDevice(id: String): Device? {
+    suspend fun getDevice(id: DeviceId): Device? {
         return devices[id]
     }
 

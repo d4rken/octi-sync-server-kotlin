@@ -1,5 +1,6 @@
 package eu.darken.octi.kserver.device
 
+import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.WARN
 import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.server.routing.*
@@ -7,7 +8,7 @@ import java.nio.charset.StandardCharsets
 import java.util.*
 
 data class DeviceCredentials(
-    val accountId: String,
+    val accountId: AccountId,
     val devicePassword: String,
 )
 
@@ -26,7 +27,7 @@ val RoutingContext.deviceCredentials: DeviceCredentials?
         val (username, password) = credentials.split(":", limit = 2)
 
         return DeviceCredentials(
-            accountId = username,
+            accountId = UUID.fromString(username),
             devicePassword = password,
         )
     }

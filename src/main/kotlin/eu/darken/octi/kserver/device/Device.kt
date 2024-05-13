@@ -1,5 +1,6 @@
 package eu.darken.octi.kserver.device
 
+import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.common.generateRandomKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.Contextual
@@ -18,10 +19,10 @@ data class Device(
         return data.accountId == credentials.accountId && data.password == credentials.devicePassword
     }
 
-    val id: String
+    val id: DeviceId
         get() = data.id
 
-    val accountId: String
+    val accountId: AccountId
         get() = data.accountId
 
     val password: String
@@ -29,10 +30,12 @@ data class Device(
 
     @Serializable
     data class Data(
-        val id: String = UUID.randomUUID().toString(),
-        val accountId: String,
+        @Contextual val id: DeviceId = UUID.randomUUID(),
+        @Contextual val accountId: AccountId,
         val password: String = generateRandomKey(),
         val label: String,
         @Contextual val addedAt: Instant = Instant.now(),
     )
 }
+
+typealias DeviceId = UUID

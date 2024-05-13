@@ -1,11 +1,10 @@
 package eu.darken.octi.kserver
 
 import eu.darken.octi.kserver.account.AccountRoute
-import eu.darken.octi.kserver.common.debug.logging.Logging
+import eu.darken.octi.kserver.account.share.ShareRoute
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import eu.darken.octi.kserver.share.ShareRoute
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -17,6 +16,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
 import java.util.*
 import javax.inject.Inject
 
@@ -24,6 +24,7 @@ class Router @Inject constructor(
     private val statusRoute: StatusRoute,
     private val authRoute: AccountRoute,
     private val shareRoute: ShareRoute,
+    private val serializers: SerializersModule,
 ) {
 
     @Suppress("ExtractKtorModule")
@@ -33,6 +34,7 @@ class Router @Inject constructor(
                 json(Json {
                     prettyPrint = true
                     isLenient = true
+                    serializersModule = serializers
                 })
             }
             extracted()
