@@ -2,6 +2,7 @@ package eu.darken.octi.kserver.account.share
 
 import eu.darken.octi.kserver.account.Account
 import eu.darken.octi.kserver.account.AccountRepo
+import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
@@ -28,11 +29,11 @@ import kotlin.time.Duration.Companion.seconds
 class ShareRepo @Inject constructor(
     private val serializer: Json,
     private val accountsRepo: AccountRepo,
+    private val appScope: AppScope,
 ) {
 
     private val shares = mutableMapOf<ShareCode, Share>()
     private val mutex = Mutex()
-    private val shareScope = CoroutineScope(Dispatchers.IO)
 
     init {
         runBlocking {
@@ -65,27 +66,44 @@ class ShareRepo @Inject constructor(
                 }
             log(TAG, INFO) { "${shares.size} shares loaded into memory" }
         }
-        shareScope.launch {
+        appScope.launch(Dispatchers.IO) {
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for expired shares..." }
                 val now = Instant.now()
                 mutex.withLock {
-                    val expiredShares = shares.values.filter {
-                        // TODO increase
-                        Duration.between(it.createdAt, now) > Duration.ofMinutes(1)
-                    }
-                    log(TAG, INFO) { "There were ${expiredShares.size} expired shares" }
-                    expiredShares.forEach {
-                        try {
-                            it.path.deleteExisting()
-                            shares.remove(it.code)
-                            log(TAG) { "Deleted expired share: $it" }
-                        } catch (e: IOException) {
-                            log(TAG, ERROR) { "Failed to delete expired share: $it" }
+                    shares.values
+                        .filter {
+                            // TODO increase
+                            Duration.between(it.createdAt, now) > Duration.ofMinutes(1)
                         }
-                    }
+                        .also { log(TAG, INFO) { "There are ${it.size} expired shares" } }
+                        .forEach {
+                            try {
+                                it.path.deleteExisting()
+                                shares.remove(it.code)
+                                log(TAG) { "Deleted expired share: $it" }
+                            } catch (e: IOException) {
+                                log(TAG, ERROR) { "Failed to delete expired share $it: ${e.asLog()}" }
+                            }
+                        }
                 }
 
+                // TODO increase
+                delay(10.seconds)
+            }
+        }
+        appScope.launch(Dispatchers.IO) {
+            while (currentCoroutineContext().isActive) {
+                log(TAG) { "Checking for stale share data..." }
+                mutex.withLock {
+                    shares.values
+                        .filter { !it.path.exists() }
+                        .also { log(TAG, INFO) { "There are ${it.size} stale shares" } }
+                        .forEach {
+                            shares.remove(it.code)
+                            log(TAG) { "Removed stale share for ${it.accountId}: $it" }
+                        }
+                }
                 // TODO increase
                 delay(10.seconds)
             }
@@ -114,9 +132,7 @@ class ShareRepo @Inject constructor(
             log(TAG, VERBOSE) { "createShare(${account.id}): Written to $this" }
         }
         shares[share.code] = share
-        share.also {
-            log(TAG, INFO) { "createShare(${account.id}): Share created created: $it" }
-        }
+        share.also { log(TAG) { "createShare(${account.id}): Share created created: $it" } }
     }
 
     suspend fun getShare(code: ShareCode): Share? = mutex.withLock {

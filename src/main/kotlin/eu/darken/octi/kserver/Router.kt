@@ -5,6 +5,7 @@ import eu.darken.octi.kserver.account.share.ShareRoute
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
+import eu.darken.octi.kserver.common.installRateLimit
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -42,6 +43,7 @@ class Router @Inject constructor(
     }
 
     private fun Application.extracted() {
+        installRateLimit()
         routing {
             get("/v1") {
                 call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
