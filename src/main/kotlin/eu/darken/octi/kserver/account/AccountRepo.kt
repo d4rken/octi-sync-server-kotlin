@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalPathApi::class)
+
 package eu.darken.octi.kserver.account
 
 import eu.darken.octi.kserver.Application
@@ -5,55 +7,59 @@ import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.io.path.*
 
+@OptIn(ExperimentalPathApi::class)
 @Singleton
 class AccountRepo @Inject constructor(
     private val serializer: Json,
 ) {
-    private val accountsPath = File(Application.dataPath, "accounts").apply {
-        if (mkdirs()) log(TAG) { "Created $this" }
+    private val accountsPath = Application.dataPath.resolve("accounts").apply {
+        if (!exists()) {
+            Files.createDirectories(this)
+            log(TAG) { "Created $this" }
+        }
     }
     private val accounts = mutableMapOf<UUID, Account>()
     private val mutex = Mutex()
 
     init {
-        val accountDirs = accountsPath.listFiles()
-        requireNotNull(accountDirs) { "Could not load account directory" }
-        log(TAG, INFO) { "${accountDirs.size} account dirs found" }
-
-        accountDirs
-            .filter {
-                if (it.isDirectory) {
-                    true
-                } else {
-                    log(TAG, WARN) { "Not a directory: $it" }
-                    false
+        runBlocking {
+            Files.newDirectoryStream(accountsPath)
+                .filter {
+                    if (it.isDirectory()) {
+                        true
+                    } else {
+                        log(TAG, WARN) { "Not a directory: $it" }
+                        false
+                    }
                 }
-            }
-            .forEach { accDir ->
-                val accData = try {
-                    serializer.decodeFromString<Account.Data>(File(accDir, ACC_FILENAME).readText())
-                } catch (e: IOException) {
-                    log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
-                    return@forEach
+                .forEach { accDir ->
+                    val accData = try {
+                        serializer.decodeFromString<Account.Data>(accDir.resolve(ACC_FILENAME).readText())
+                    } catch (e: IOException) {
+                        log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
+                        return@forEach
+                    }
+                    log(TAG) { "Account info loaded: $accData" }
+                    accounts[accData.id] = Account(
+                        data = accData,
+                        path = accDir,
+                    )
                 }
-                log(TAG) { "Account info loaded: $accData" }
-                accounts[accData.id] = Account(
-                    data = accData,
-                    path = accDir,
-                )
-            }
 
-        log(TAG, INFO) { "${accounts.size} accounts loaded into memory" }
+            log(TAG, INFO) { "${accounts.size} accounts loaded into memory" }
+        }
     }
 
     suspend fun createAccount(): Account = mutex.withLock {
@@ -64,18 +70,19 @@ class AccountRepo @Inject constructor(
 
         val account = Account(
             data = accData,
-            path = File(accountsPath, accData.id.toString())
+            path = accountsPath.resolve(accData.id.toString()),
         )
 
         account.path.run {
-            if (mkdirs()) log(TAG) { "createAccount(): Dirs created: $this" }
-            File(this, ACC_FILENAME).writeText(serializer.encodeToString(accData))
-            log(TAG, VERBOSE) { "Account written to $this" }
+            if (!exists()) {
+                createDirectory()
+                log(TAG) { "createAccount(): Dirs created: $this" }
+            }
+            resolve(ACC_FILENAME).writeText(serializer.encodeToString(accData))
+            log(TAG, VERBOSE) { "createAccount(): Account written to $this" }
         }
         accounts[accData.id] = account
-        account.also {
-            log(TAG, INFO) { "createAccount(): Account created: $accData" }
-        }
+        account.also { log(TAG) { "createAccount(): Account created: $accData" } }
     }
 
     suspend fun getAccount(id: UUID): Account? = mutex.withLock {
@@ -88,14 +95,20 @@ class AccountRepo @Inject constructor(
         log(TAG) { "deleteAccount($id)..." }
         val account = accounts.remove(id) ?: throw IllegalArgumentException("Unknown account")
         val accountDir = account.path
-        if (!accountDir.deleteRecursively()) {
-            log(TAG, ERROR) { "Failed to delete account directory: $accountDir" }
-            val accountConfig = File(account.path, ACC_FILENAME)
-            if (accountConfig.exists() || accountConfig.delete()) {
+        val deleted = try {
+            accountDir.deleteRecursively()
+            true
+        } catch (e: IOException) {
+            log(TAG, ERROR) { "Failed to delete account directory: $accountDir: ${e.asLog()}" }
+            false
+        }
+        if (!deleted) {
+            val accountConfig = account.path.resolve(ACC_FILENAME)
+            if (accountConfig.deleteIfExists()) {
                 log(TAG, WARN) { "Deleted account file, will clean up on next restart." }
             }
         }
-        log(TAG, INFO) { "deleteAccount($id): Account deleted: $account" }
+        log(TAG) { "deleteAccount($id): Account deleted: $account" }
     }
 
     suspend fun getAllAccounts(): List<Account> = mutex.withLock {

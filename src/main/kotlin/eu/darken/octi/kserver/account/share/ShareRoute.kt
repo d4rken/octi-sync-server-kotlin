@@ -2,7 +2,9 @@ package eu.darken.octi.kserver.account.share
 
 import eu.darken.octi.kserver.account.AccountRepo
 import eu.darken.octi.kserver.common.callInfo
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.ERROR
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.common.verifyAuth
@@ -25,6 +27,7 @@ class ShareRoute @Inject constructor(
             try {
                 handleShareCreation()
             } catch (e: Exception) {
+                log(TAG, ERROR) { "handleShareCreation failed: ${e.asLog()}" }
                 call.respond(HttpStatusCode.InternalServerError, "Share code creation failed")
             }
         }
@@ -37,10 +40,8 @@ class ShareRoute @Inject constructor(
             ?: throw IllegalStateException("Account not found for $device")
 
         val share = shareRepo.createShare(account)
-
-        call.respond(share).also {
-            log(TAG, INFO) { "createShare($callInfo): Share created: $share" }
-        }
+        val response = ShareResponse(code = share.code)
+        call.respond(response).also { log(TAG, INFO) { "createShare($callInfo): Share created: $share" } }
     }
 
     companion object {

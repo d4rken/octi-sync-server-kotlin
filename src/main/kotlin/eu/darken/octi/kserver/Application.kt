@@ -6,8 +6,9 @@ import eu.darken.octi.kserver.common.debug.logging.Logging
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import java.io.File
+import java.nio.file.Path
 import javax.inject.Inject
+import kotlin.io.path.Path
 
 class Application @Inject constructor(
     val appScope: AppScope,
@@ -20,7 +21,7 @@ class Application @Inject constructor(
 
     companion object {
         var isDebug = false
-        lateinit var dataPath: File
+        lateinit var dataPath: Path
 
         @JvmStatic
         fun main(args: Array<String>) {
@@ -29,7 +30,7 @@ class Application @Inject constructor(
             args.forEach {
                 when {
                     it.startsWith("--debug") -> isDebug = true
-                    it.startsWith("--datapath=") -> dataPath = File(it.substringAfter('='))
+                    it.startsWith("--datapath=") -> dataPath = Path(it.substringAfter('='))
                 }
             }
 

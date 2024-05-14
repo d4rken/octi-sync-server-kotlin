@@ -11,11 +11,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.io.path.*
 
+@OptIn(ExperimentalPathApi::class)
 @Singleton
 class DeviceRepo @Inject constructor(
     private val serializer: Json,
@@ -31,8 +33,9 @@ class DeviceRepo @Inject constructor(
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        File(account.path, DEVICES_DIR).listFiles()?.toList().also {
-                            log(TAG) { "Loading account with ${it?.size} devices" }
+                        val path = account.path.resolve(DEVICES_DIR)
+                        Files.newDirectoryStream(path).also {
+                            log(TAG) { "Listing devices for ${account.id}" }
                         }
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to list devices for $account" }
@@ -42,7 +45,7 @@ class DeviceRepo @Inject constructor(
                 .flatten()
                 .forEach { deviceDir ->
                     val deviceData = try {
-                        serializer.decodeFromString<Device.Data>(File(deviceDir, DEVICE_FILENAME).readText())
+                        serializer.decodeFromString<Device.Data>(deviceDir.resolve(DEVICE_FILENAME).readText())
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to read $deviceDir: ${e.asLog()}" }
                         return@forEach
@@ -60,25 +63,33 @@ class DeviceRepo @Inject constructor(
     suspend fun createDevice(
         account: Account,
         label: String,
+        deviceId: DeviceId,
     ): Device = mutex.withLock {
         val data = Device.Data(
+            id = deviceId,
             accountId = account.id,
             label = label,
         )
 
         val device = Device(
             data = data,
-            path = File(account.path, "$DEVICES_DIR/${data.id}")
+            path = account.path.resolve("$DEVICES_DIR/${data.id}")
         )
         device.path.run {
-            if (mkdirs()) log(TAG) { "Created dirs: $this" }
-            File(this, DEVICE_FILENAME).writeText(serializer.encodeToString(data))
+            if (!parent.exists()) {
+                parent.createDirectory()
+                log(TAG) { "Created parent dir for $this" }
+            }
+            if (!exists()) {
+                createDirectory()
+                log(TAG) { "Created dir for $this" }
+            }
+            resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))
             log(TAG, VERBOSE) { "Device written: $this" }
         }
 
         devices[device.id] = device
-        log(TAG, INFO) { "createDevice(): Device created $device" }
-
+        log(TAG) { "createDevice(): Device created $device" }
         return device
     }
 
@@ -86,8 +97,14 @@ class DeviceRepo @Inject constructor(
         return devices[id]
     }
 
-    suspend fun deleteDevice(id: String) = mutex.withLock {
-        log(TAG, INFO) { "deleteDevice($id)" }
+    suspend fun deleteDevice(id: DeviceId) = mutex.withLock {
+        log(TAG, VERBOSE) { "deleteDevice($id)..." }
+        val device = devices[id] ?: throw IllegalArgumentException("Device not found: $id")
+        device.sync.withLock {
+            devices.remove(id)
+            device.path.deleteRecursively()
+        }
+        log(TAG) { "deleteDevice($id): Device deleted: $device" }
     }
 
     companion object {

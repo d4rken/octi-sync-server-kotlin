@@ -6,15 +6,22 @@ import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
+import kotlin.time.Duration.Companion.seconds
 
 
 @Singleton
@@ -25,6 +32,7 @@ class ShareRepo @Inject constructor(
 
     private val shares = mutableMapOf<ShareCode, Share>()
     private val mutex = Mutex()
+    private val shareScope = CoroutineScope(Dispatchers.IO)
 
     init {
         runBlocking {
@@ -32,8 +40,9 @@ class ShareRepo @Inject constructor(
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        File(account.path, SHARES_DIR).listFiles()?.toList().also {
-                            log(TAG) { "Loading ${it?.size} shares from $account" }
+                        val path = account.path.resolve(SHARES_DIR)
+                        Files.newDirectoryStream(path).toList().also {
+                            log(TAG) { "Loading ${it.size} shares from ${account.id}" }
                         }
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to list shares for $account" }
@@ -41,31 +50,67 @@ class ShareRepo @Inject constructor(
                     }
                 }
                 .flatten()
-                .forEach { shareFile ->
-                    val share = try {
-                        serializer.decodeFromString<Share>(shareFile.readText())
+                .forEach { path ->
+                    val data: Share.Data = try {
+                        serializer.decodeFromString(path.readText())
                     } catch (e: IOException) {
-                        log(TAG, ERROR) { "Failed to read $shareFile: ${e.asLog()}" }
+                        log(TAG, ERROR) { "Failed to read $path: ${e.asLog()}" }
                         return@forEach
                     }
-                    log(TAG) { "Share info loaded: $share" }
-                    shares[share.code] = share
+                    log(TAG) { "Share info loaded: $data" }
+                    shares[data.code] = Share(
+                        data = data,
+                        path = path
+                    )
                 }
             log(TAG, INFO) { "${shares.size} shares loaded into memory" }
         }
+        shareScope.launch {
+            while (currentCoroutineContext().isActive) {
+                log(TAG) { "Checking for expired shares..." }
+                val now = Instant.now()
+                mutex.withLock {
+                    val expiredShares = shares.values.filter {
+                        // TODO increase
+                        Duration.between(it.createdAt, now) > Duration.ofMinutes(1)
+                    }
+                    log(TAG, INFO) { "There were ${expiredShares.size} expired shares" }
+                    expiredShares.forEach {
+                        try {
+                            it.path.deleteExisting()
+                            shares.remove(it.code)
+                            log(TAG) { "Deleted expired share: $it" }
+                        } catch (e: IOException) {
+                            log(TAG, ERROR) { "Failed to delete expired share: $it" }
+                        }
+                    }
+                }
+
+                // TODO increase
+                delay(10.seconds)
+            }
+        }
     }
 
-    private fun Share.getPath(account: Account): File = File(account.path, "shares/$id.json")
 
     suspend fun createShare(account: Account): Share = mutex.withLock {
         log(TAG) { "createShare(${account.id}): Creating share..." }
 
-        val share = Share(accountId = account.id)
+        val data = Share.Data(
+            accountId = account.id
+        )
+        val share = Share(
+            data = data,
+            path = account.path.resolve("shares/${data.id}.json")
+        )
         if (shares.containsKey(share.code)) throw IllegalStateException("Share ID collision???")
 
-        share.getPath(account).run {
-            if (parentFile.mkdirs()) log(TAG) { "createShare(${account.id}): Parents created: $this" }
-            writeText(serializer.encodeToString(share))
+        share.path.run {
+            if (!parent.exists()) {
+                Files.createDirectory(parent)
+                log(TAG) { "createShare(${account.id}): Parent created for $this" }
+            }
+            writeText(serializer.encodeToString(share.data))
             log(TAG, VERBOSE) { "createShare(${account.id}): Written to $this" }
         }
         shares[share.code] = share

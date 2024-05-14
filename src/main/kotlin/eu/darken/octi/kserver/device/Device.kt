@@ -5,14 +5,14 @@ import eu.darken.octi.kserver.common.generateRandomKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
-import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 import java.util.*
 
 
 data class Device(
     val data: Data,
-    val path: File,
+    val path: Path,
     val sync: Mutex = Mutex(),
 ) {
     fun isAuthorized(credentials: DeviceCredentials): Boolean {
@@ -30,7 +30,7 @@ data class Device(
 
     @Serializable
     data class Data(
-        @Contextual val id: DeviceId = UUID.randomUUID(),
+        @Contextual val id: DeviceId,
         @Contextual val accountId: AccountId,
         val password: String = generateRandomKey(),
         val label: String,

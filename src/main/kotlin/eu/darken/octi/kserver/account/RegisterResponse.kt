@@ -6,6 +6,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class RegisterResponse(
-    @Contextual @SerialName("username") val accountID: AccountId,
+    @Contextual @SerialName("account") val accountID: AccountId,
     @SerialName("password") val password: String
 )

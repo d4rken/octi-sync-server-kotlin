@@ -56,6 +56,14 @@ class AccountRoute @Inject constructor(
             return
         }
 
+        // Check if this device is already registered
+        var device = deviceRepo.getDevice(deviceId)
+        if (device != null) {
+            log(TAG, WARN) { "create($callInfo): Device is already known: $device" }
+            call.respond(HttpStatusCode.BadRequest, "Device is already registered")
+            return
+        }
+
         val credentials = this.deviceCredentials
         log(TAG, VERBOSE) { "create($callInfo): credentials=$credentials" }
 
@@ -102,15 +110,8 @@ class AccountRoute @Inject constructor(
             account = accountRepo.createAccount()
         }
 
-        // Check if this device is already registered
-        var device = deviceRepo.getDevice(deviceId)
-        if (device != null) {
-            log(TAG, WARN) { "create($callInfo): Device is already known: $device" }
-            call.respond(HttpStatusCode.BadRequest, "Device is already registered")
-            return
-        }
-
         device = deviceRepo.createDevice(
+            deviceId = deviceId,
             account = account,
             label = call.request.headers["User-Agent"] ?: ""
         )
@@ -129,6 +130,7 @@ class AccountRoute @Inject constructor(
 
         log(TAG, INFO) { "delete(${callInfo}): User is authorized, deleting account..." }
         accountRepo.deleteAccount(device.accountId)
+        deviceRepo.deleteDevice(device.id)
 
         call.respond(HttpStatusCode.OK).also {
             log(TAG, INFO) { "delete($callInfo): Account was deleted: ${device.accountId}" }
