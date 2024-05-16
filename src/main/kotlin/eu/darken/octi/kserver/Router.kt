@@ -5,12 +5,14 @@ import eu.darken.octi.kserver.account.share.ShareRoute
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
+import eu.darken.octi.kserver.common.installCallLogging
 import eu.darken.octi.kserver.common.installRateLimit
+import eu.darken.octi.kserver.device.DeviceRoute
+import eu.darken.octi.kserver.module.ModuleRoute
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
-import io.ktor.server.application.Application
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
@@ -25,12 +27,15 @@ class Router @Inject constructor(
     private val statusRoute: StatusRoute,
     private val authRoute: AccountRoute,
     private val shareRoute: ShareRoute,
+    private val deviceRoute: DeviceRoute,
+    private val moduleRoute: ModuleRoute,
     private val serializers: SerializersModule,
 ) {
 
     @Suppress("ExtractKtorModule")
     private val server by lazy {
         embeddedServer(Netty, 8080) {
+            installCallLogging()
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
@@ -38,19 +43,17 @@ class Router @Inject constructor(
                     serializersModule = serializers
                 })
             }
-            extracted()
-        }
-    }
-
-    private fun Application.extracted() {
-        installRateLimit()
-        routing {
-            get("/v1") {
-                call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
+            installRateLimit()
+            routing {
+                get("/v1") {
+                    call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
+                }
+                statusRoute.setup(this)
+                authRoute.setup(this)
+                shareRoute.setup(this)
+                deviceRoute.setup(this)
+                moduleRoute.setup(this)
             }
-            statusRoute.setup(this)
-            authRoute.setup(this)
-            shareRoute.setup(this)
         }
     }
 

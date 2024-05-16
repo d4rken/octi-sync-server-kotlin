@@ -1,6 +1,7 @@
 package eu.darken.octi.kserver.device
 
 import eu.darken.octi.kserver.account.Account
+import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.account.AccountRepo
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
@@ -13,6 +14,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
@@ -24,26 +26,26 @@ class DeviceRepo @Inject constructor(
     private val accountsRepo: AccountRepo,
 ) {
 
-    private val devices = mutableMapOf<DeviceId, Device>()
+    private val devices = ConcurrentHashMap<DeviceId, Device>()
     private val mutex = Mutex()
 
     init {
         runBlocking {
-            accountsRepo.getAllAccounts()
+            accountsRepo.getAccounts()
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        val path = account.path.resolve(DEVICES_DIR)
-                        Files.newDirectoryStream(path).also {
-                            log(TAG) { "Listing devices for ${account.id}" }
-                        }
+                        Files
+                            .newDirectoryStream(account.path.resolve(DEVICES_DIR))
+                            .map { account to it }
+                            .also { log(TAG) { "Listing devices for ${account.id}" } }
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to list devices for $account" }
                         null
                     }
                 }
                 .flatten()
-                .forEach { deviceDir ->
+                .forEach { (account, deviceDir) ->
                     val deviceData = try {
                         serializer.decodeFromString<Device.Data>(deviceDir.resolve(DEVICE_FILENAME).readText())
                     } catch (e: IOException) {
@@ -54,6 +56,7 @@ class DeviceRepo @Inject constructor(
                     devices[deviceData.id] = Device(
                         data = deviceData,
                         path = deviceDir,
+                        accountId = account.id,
                     )
                 }
             log(TAG, INFO) { "${devices.size} devices loaded into memory" }
@@ -62,53 +65,84 @@ class DeviceRepo @Inject constructor(
 
     suspend fun createDevice(
         account: Account,
-        label: String,
         deviceId: DeviceId,
-    ): Device = mutex.withLock {
+        version: String?,
+        label: String?,
+    ): Device {
         val data = Device.Data(
             id = deviceId,
-            accountId = account.id,
             label = label,
+            version = version,
         )
-
         val device = Device(
             data = data,
+            accountId = account.id,
             path = account.path.resolve("$DEVICES_DIR/${data.id}")
         )
-        device.path.run {
-            if (!parent.exists()) {
-                parent.createDirectory()
-                log(TAG) { "Created parent dir for $this" }
-            }
-            if (!exists()) {
-                createDirectory()
-                log(TAG) { "Created dir for $this" }
-            }
-            resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))
-            log(TAG, VERBOSE) { "Device written: $this" }
-        }
+        mutex.withLock {
+            if (devices[device.id] != null) throw IllegalStateException("Device already exists: ${device.id}")
 
-        devices[device.id] = device
+            device.path.run {
+                if (!parent.exists()) {
+                    parent.createDirectory()
+                    log(TAG) { "Created parent dir for $this" }
+                }
+                if (!exists()) {
+                    createDirectory()
+                    log(TAG) { "Created dir for $this" }
+                }
+                resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))
+                log(TAG, VERBOSE) { "Device written: $this" }
+            }
+            devices[device.id] = device
+        }
         log(TAG) { "createDevice(): Device created $device" }
         return device
     }
 
-    suspend fun getDevice(id: DeviceId): Device? {
-        return devices[id]
+    suspend fun getDevice(deviceId: DeviceId): Device? {
+        return devices[deviceId]
     }
 
-    suspend fun deleteDevice(id: DeviceId) = mutex.withLock {
-        log(TAG, VERBOSE) { "deleteDevice($id)..." }
-        val device = devices[id] ?: throw IllegalArgumentException("Device not found: $id")
-        device.sync.withLock {
-            devices.remove(id)
-            device.path.deleteRecursively()
+    suspend fun getDevices(accountId: AccountId): Collection<Device> {
+        val accountDevices = mutableSetOf<Device>()
+        devices.forEach {
+            if (it.value.accountId == accountId) {
+                accountDevices.add(it.value)
+            }
         }
-        log(TAG) { "deleteDevice($id): Device deleted: $device" }
+        return accountDevices
+    }
+
+    suspend fun deleteDevice(deviceId: DeviceId) {
+        log(TAG, VERBOSE) { "deleteDevice($deviceId)..." }
+        val toDelete = mutex.withLock {
+            devices.remove(deviceId) ?: throw IllegalArgumentException("$deviceId not found")
+        }
+        toDelete.sync.withLock {
+            toDelete.path.deleteRecursively()
+            log(TAG) { "deleteDevice($deviceId): Device deleted: $toDelete" }
+        }
+    }
+
+    suspend fun deleteDevices(accountId: AccountId) {
+        log(TAG, VERBOSE) { "deleteDevices($accountId)..." }
+        val toDelete = mutex.withLock {
+            devices
+                .filter { it.value.accountId == accountId }
+                .map { devices.remove(it.key)!! }
+        }
+        log(TAG) { "deleteDevices($accountId): Deleting ${toDelete.size} devices" }
+        toDelete.forEach { device ->
+            device.sync.withLock {
+                device.path.deleteRecursively()
+                log(TAG) { "deleteDevices($accountId): Device deleted: $device" }
+            }
+        }
     }
 
     companion object {
-        private const val DEVICES_DIR = "devices"
+        const val DEVICES_DIR = "devices"
         private const val DEVICE_FILENAME = "device.json"
         private val TAG = logTag("Device", "Repo")
     }

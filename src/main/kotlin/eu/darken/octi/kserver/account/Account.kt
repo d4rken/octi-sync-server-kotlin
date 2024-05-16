@@ -15,6 +15,9 @@ data class Account(
     val id: AccountId
         get() = data.id
 
+    val createdAt: Instant
+        get() = data.createdAt
+
     @Serializable
     data class Data(
         @Contextual val id: AccountId = UUID.randomUUID(),

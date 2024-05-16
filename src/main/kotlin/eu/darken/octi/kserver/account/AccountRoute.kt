@@ -27,7 +27,7 @@ class AccountRoute @Inject constructor(
         rootRoute.route("/v1/account") {
             this.post {
                 try {
-                    handleCreate()
+                    create()
                 } catch (e: Exception) {
                     log(TAG, ERROR) { "create() failed: ${e.asLog()}" }
                     call.respond(HttpStatusCode.InternalServerError, "Account creation failed")
@@ -35,7 +35,7 @@ class AccountRoute @Inject constructor(
             }
             delete {
                 try {
-                    handleDelete()
+                    delete()
                 } catch (e: Exception) {
                     log(TAG, ERROR) { "delete() failed: ${e.asLog()}" }
                     call.respond(HttpStatusCode.InternalServerError, "Account deletion failed")
@@ -44,7 +44,7 @@ class AccountRoute @Inject constructor(
         }
     }
 
-    private suspend fun RoutingContext.handleCreate() {
+    private suspend fun RoutingContext.create() {
         val deviceId = call.headerDeviceId
         val shareCode = call.request.queryParameters["share"]
 
@@ -64,21 +64,14 @@ class AccountRoute @Inject constructor(
             return
         }
 
-        val credentials = this.deviceCredentials
-        log(TAG, VERBOSE) { "create($callInfo): credentials=$credentials" }
+        if (deviceCredentials != null) {
+            log(TAG, WARN) { "create($callInfo): Credentials were unexpectedly provided" }
+            call.respond(HttpStatusCode.BadRequest, "Don't provide credentials during action creation or linking")
+            return
+        }
 
-        // At this point there is no device registered with $deviceId yet
-        var account = credentials?.let { accountRepo.getAccount(it.accountId) }
-        if (account != null) log(TAG) { "create($callInfo): Found matching account: $account" }
-
-        // Can we add this device to an existing account?
-        if (shareCode != null) {
-            if (account == null) {
-                log(TAG, WARN) { "create($callInfo): Can't use shareId, no account provided" }
-                call.respond(HttpStatusCode.BadRequest, "Account is missing")
-                return
-            }
-
+        // Try linking device to account
+        val account = if (shareCode != null) {
             val share = shareRepo.getShare(shareCode)
             if (share == null) {
                 log(TAG, WARN) { "create($callInfo): Could not resolve ShareCode" }
@@ -86,34 +79,24 @@ class AccountRoute @Inject constructor(
                 return
             }
 
-            if (share.accountId != credentials?.accountId) {
-                log(TAG, WARN) { "create($callInfo): Share invalid, account ID mismatch" }
-                call.respond(HttpStatusCode.Forbidden, "Invalid account")
-                return
-            }
-
-            if (shareRepo.consumeShare(shareCode)) {
-                log(TAG, INFO) { "create($callInfo): Share was valid and matches account, let's add the device" }
-            } else {
+            if (!shareRepo.consumeShare(shareCode)) {
                 log(TAG, ERROR) { "create($callInfo): Failed to consume Share" }
                 call.respond(HttpStatusCode.InternalServerError, "ShareCode was already consumed")
                 return
             }
+            log(TAG, INFO) { "create($callInfo): Share was valid, let's add the device" }
+            accountRepo.getAccount(share.accountId)!!
         } else {
-            if (credentials != null) {
-                log(TAG, WARN) { "create($callInfo): Credentials provided but no ShareCode" }
-                call.respond(HttpStatusCode.BadRequest, "ShareCode required if credentials are provided")
-                return
-            }
-
+            // Normal account creation
             log(TAG, INFO) { "create($callInfo): No ShareCode and Account does not exist, create one" }
-            account = accountRepo.createAccount()
+            accountRepo.createAccount()
         }
 
         device = deviceRepo.createDevice(
             deviceId = deviceId,
             account = account,
-            label = call.request.headers["User-Agent"] ?: ""
+            label = call.request.headers["User-Agent"],
+            version = call.request.headers["User-Agent"],
         )
 
         val response = RegisterResponse(
@@ -125,15 +108,16 @@ class AccountRoute @Inject constructor(
         }
     }
 
-    private suspend fun RoutingContext.handleDelete() {
-        val device = verifyAuth(TAG, deviceRepo) ?: return
+    private suspend fun RoutingContext.delete() {
+        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
+        log(TAG, INFO) { "delete(${callInfo}): Deleting account ${callerDevice.accountId}" }
 
-        log(TAG, INFO) { "delete(${callInfo}): User is authorized, deleting account..." }
-        accountRepo.deleteAccount(device.accountId)
-        deviceRepo.deleteDevice(device.id)
+        deviceRepo.deleteDevices(callerDevice.accountId)
+        shareRepo.removeSharesForAccount(callerDevice.accountId)
+        accountRepo.deleteAccounts(listOf(callerDevice.accountId))
 
         call.respond(HttpStatusCode.OK).also {
-            log(TAG, INFO) { "delete($callInfo): Account was deleted: ${device.accountId}" }
+            log(TAG, INFO) { "delete($callInfo): Account was deleted: ${callerDevice.accountId}" }
         }
     }
 

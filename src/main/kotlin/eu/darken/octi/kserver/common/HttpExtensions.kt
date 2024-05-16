@@ -1,5 +1,6 @@
 package eu.darken.octi.kserver.common
 
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.WARN
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.device.Device
@@ -27,7 +28,7 @@ val RoutingCall.headerDeviceId: DeviceId?
 
 suspend fun RoutingContext.verifyAuth(tag: String, deviceRepo: DeviceRepo): Device? {
     val deviceId = call.headerDeviceId
-    log(tag) { "verifyAuth($callInfo): deviceId=$deviceId" }
+    log(tag, VERBOSE) { "verifyAuth($callInfo): deviceId=$deviceId" }
 
     if (deviceId == null) {
         log(tag, WARN) { "verifyAuth($callInfo): 400 Bad request, missing header ID" }
@@ -38,7 +39,7 @@ suspend fun RoutingContext.verifyAuth(tag: String, deviceRepo: DeviceRepo): Devi
     val creds = deviceCredentials
     if (creds == null) {
         log(tag, WARN) { "verifyAuth($callInfo): deviceId=$deviceId credentials missing" }
-        call.respond(HttpStatusCode.Unauthorized, "Device credentials are missing")
+        call.respond(HttpStatusCode.BadRequest, "Device credentials are missing")
         return null
     }
 
@@ -46,7 +47,7 @@ suspend fun RoutingContext.verifyAuth(tag: String, deviceRepo: DeviceRepo): Devi
     val device = deviceRepo.getDevice(deviceId)
     if (device == null) {
         log(tag, WARN) { "verifyAuth($callInfo): deviceId=$deviceId not found" }
-        call.respond(HttpStatusCode.NotFound, "Device does not exist: $deviceId")
+        call.respond(HttpStatusCode.NotFound, "Unknown device: $deviceId")
         return null
     }
 

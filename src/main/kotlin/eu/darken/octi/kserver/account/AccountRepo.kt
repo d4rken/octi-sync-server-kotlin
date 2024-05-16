@@ -2,35 +2,42 @@
 
 package eu.darken.octi.kserver.account
 
-import eu.darken.octi.kserver.Application
+import eu.darken.octi.kserver.App
+import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import kotlinx.coroutines.runBlocking
+import eu.darken.octi.kserver.device.DeviceRepo
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Files
+import java.time.Duration
+import java.time.Instant
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class AccountRepo @Inject constructor(
     private val serializer: Json,
+    private val appScope: AppScope,
 ) {
-    private val accountsPath = Application.dataPath.resolve("accounts").apply {
+    private val accountsPath = App.dataPath.resolve("accounts").apply {
         if (!exists()) {
             Files.createDirectories(this)
             log(TAG) { "Created $this" }
         }
     }
-    private val accounts = mutableMapOf<UUID, Account>()
+    private val accounts = ConcurrentHashMap<UUID, Account>()
     private val mutex = Mutex()
 
     init {
@@ -45,20 +52,45 @@ class AccountRepo @Inject constructor(
                     }
                 }
                 .forEach { accDir ->
-                    val accData = try {
-                        serializer.decodeFromString<Account.Data>(accDir.resolve(ACC_FILENAME).readText())
-                    } catch (e: IOException) {
-                        log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
-                        return@forEach
+                    val configPath = accDir.resolve(ACC_FILENAME)
+                    if (configPath.exists()) {
+                        val accData = try {
+                            serializer.decodeFromString<Account.Data>(configPath.readText())
+                        } catch (e: IOException) {
+                            log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
+                            return@forEach
+                        }
+                        log(TAG) { "Account info loaded: $accData" }
+                        accounts[accData.id] = Account(
+                            data = accData,
+                            path = accDir,
+                        )
+                    } else {
+                        log(TAG, WARN) { "Missing account config for $accDir, cleaning up..." }
+                        accDir.deleteRecursively()
                     }
-                    log(TAG) { "Account info loaded: $accData" }
-                    accounts[accData.id] = Account(
-                        data = accData,
-                        path = accDir,
-                    )
                 }
 
             log(TAG, INFO) { "${accounts.size} accounts loaded into memory" }
+        }
+
+        appScope.launch(Dispatchers.IO) {
+            delay(10.seconds)
+            while (currentCoroutineContext().isActive) {
+                val now = Instant.now()
+                log(TAG) { "Checking for orphaned accounts..." }
+                val orphaned = accounts.filterValues {
+                    // We don't lock the mutex, so prevent accounts that are currently in creation
+                    if (Duration.between(it.createdAt, now) < Duration.ofMinutes(60)) return@filterValues false
+                    it.path.resolve(DeviceRepo.DEVICES_DIR).listDirectoryEntries().isEmpty()
+                }
+                if (orphaned.isNotEmpty()) {
+                    log(TAG, INFO) { "Deleting ${orphaned.size} accounts without devices" }
+                    deleteAccounts(orphaned.map { it.value.id })
+                }
+                // TODO increase
+                delay(10.seconds)
+            }
         }
     }
 
@@ -85,34 +117,35 @@ class AccountRepo @Inject constructor(
         account.also { log(TAG) { "createAccount(): Account created: $accData" } }
     }
 
-    suspend fun getAccount(id: UUID): Account? = mutex.withLock {
-        accounts[id].also {
-            log(TAG, VERBOSE) { "getAccount($id) -> $it" }
-        }
+    suspend fun getAccount(id: AccountId): Account? {
+        return accounts[id].also { log(TAG, VERBOSE) { "getAccount($id) -> $it" } }
     }
 
-    suspend fun deleteAccount(id: UUID) = mutex.withLock {
-        log(TAG) { "deleteAccount($id)..." }
-        val account = accounts.remove(id) ?: throw IllegalArgumentException("Unknown account")
-        val accountDir = account.path
-        val deleted = try {
-            accountDir.deleteRecursively()
-            true
-        } catch (e: IOException) {
-            log(TAG, ERROR) { "Failed to delete account directory: $accountDir: ${e.asLog()}" }
-            false
-        }
-        if (!deleted) {
-            val accountConfig = account.path.resolve(ACC_FILENAME)
-            if (accountConfig.deleteIfExists()) {
-                log(TAG, WARN) { "Deleted account file, will clean up on next restart." }
-            }
-        }
-        log(TAG) { "deleteAccount($id): Account deleted: $account" }
-    }
-
-    suspend fun getAllAccounts(): List<Account> = mutex.withLock {
+    suspend fun getAccounts(): List<Account> {
         return accounts.values.toList()
+    }
+
+    suspend fun deleteAccounts(ids: Collection<AccountId>) {
+        log(TAG) { "deleteAccount($ids)..." }
+        val accounts = mutex.withLock {
+            ids.map { accounts.remove(it) ?: throw IllegalArgumentException("Unknown account") }
+        }
+        accounts.forEach { account ->
+            val deleted = try {
+                account.path.deleteRecursively()
+                true
+            } catch (e: IOException) {
+                log(TAG, ERROR) { "Failed to delete account directory: $account: ${e.asLog()}" }
+                false
+            }
+            if (!deleted) {
+                val accountConfig = account.path.resolve(ACC_FILENAME)
+                if (accountConfig.deleteIfExists()) {
+                    log(TAG, WARN) { "Deleted account file, will clean up on next restart." }
+                }
+            }
+            log(TAG) { "deleteAccount($ids): Account deleted: $account" }
+        }
     }
 
     companion object {

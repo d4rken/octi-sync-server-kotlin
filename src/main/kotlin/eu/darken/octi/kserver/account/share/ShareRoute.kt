@@ -25,19 +25,19 @@ class ShareRoute @Inject constructor(
     fun setup(rootRoute: RootRoute) {
         rootRoute.post("/v1/account/share") {
             try {
-                handleShareCreation()
+                createShare()
             } catch (e: Exception) {
-                log(TAG, ERROR) { "handleShareCreation failed: ${e.asLog()}" }
+                log(TAG, ERROR) { "createShare failed: ${e.asLog()}" }
                 call.respond(HttpStatusCode.InternalServerError, "Share code creation failed")
             }
         }
     }
 
-    private suspend fun RoutingContext.handleShareCreation() {
-        val device = verifyAuth(TAG, deviceRepo) ?: return
+    private suspend fun RoutingContext.createShare() {
+        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
 
-        val account = accountRepo.getAccount(device.accountId)
-            ?: throw IllegalStateException("Account not found for $device")
+        val account = accountRepo.getAccount(callerDevice.accountId)
+            ?: throw IllegalStateException("Account not found for $callerDevice")
 
         val share = shareRepo.createShare(account)
         val response = ShareResponse(code = share.code)

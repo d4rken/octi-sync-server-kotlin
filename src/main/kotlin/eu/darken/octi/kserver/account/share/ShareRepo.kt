@@ -1,6 +1,7 @@
 package eu.darken.octi.kserver.account.share
 
 import eu.darken.octi.kserver.account.Account
+import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.account.AccountRepo
 import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
@@ -16,9 +17,10 @@ import java.io.IOException
 import java.nio.file.Files
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.io.path.deleteExisting
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -32,26 +34,28 @@ class ShareRepo @Inject constructor(
     private val appScope: AppScope,
 ) {
 
-    private val shares = mutableMapOf<ShareCode, Share>()
+    private val shares = ConcurrentHashMap<ShareId, Share>()
     private val mutex = Mutex()
 
     init {
         runBlocking {
-            accountsRepo.getAllAccounts()
+            accountsRepo.getAccounts()
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        val path = account.path.resolve(SHARES_DIR)
-                        Files.newDirectoryStream(path).toList().also {
-                            log(TAG) { "Loading ${it.size} shares from ${account.id}" }
-                        }
+                        Files
+                            .newDirectoryStream(account.path.resolve(SHARES_DIR))
+                            .map { account to it }
+                            .toList().also {
+                                log(TAG) { "Loading ${it.size} shares from account with ID=${account.id}" }
+                            }
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to list shares for $account" }
                         null
                     }
                 }
                 .flatten()
-                .forEach { path ->
+                .forEach { (account, path) ->
                     val data: Share.Data = try {
                         serializer.decodeFromString(path.readText())
                     } catch (e: IOException) {
@@ -59,50 +63,41 @@ class ShareRepo @Inject constructor(
                         return@forEach
                     }
                     log(TAG) { "Share info loaded: $data" }
-                    shares[data.code] = Share(
+                    shares[data.id] = Share(
                         data = data,
-                        path = path
+                        path = path,
+                        accountId = account.id,
                     )
                 }
             log(TAG, INFO) { "${shares.size} shares loaded into memory" }
         }
+
         appScope.launch(Dispatchers.IO) {
+            delay(20.seconds)
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for expired shares..." }
                 val now = Instant.now()
-                mutex.withLock {
-                    shares.values
-                        .filter {
-                            // TODO increase
-                            Duration.between(it.createdAt, now) > Duration.ofMinutes(1)
-                        }
-                        .also { log(TAG, INFO) { "There are ${it.size} expired shares" } }
-                        .forEach {
-                            try {
-                                it.path.deleteExisting()
-                                shares.remove(it.code)
-                                log(TAG) { "Deleted expired share: $it" }
-                            } catch (e: IOException) {
-                                log(TAG, ERROR) { "Failed to delete expired share $it: ${e.asLog()}" }
-                            }
-                        }
+                val expiredShares = shares.filterValues { share ->
+                    // TODO increase
+                    Duration.between(share.createdAt, now) > Duration.ofMinutes(1)
                 }
-
+                if (expiredShares.isNotEmpty()) {
+                    log(TAG, INFO) { "Deleting ${expiredShares.size} expired shares" }
+                    removeShares(expiredShares.map { it.value.id })
+                }
                 // TODO increase
                 delay(10.seconds)
             }
         }
+
         appScope.launch(Dispatchers.IO) {
+            delay(15.seconds)
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for stale share data..." }
-                mutex.withLock {
-                    shares.values
-                        .filter { !it.path.exists() }
-                        .also { log(TAG, INFO) { "There are ${it.size} stale shares" } }
-                        .forEach {
-                            shares.remove(it.code)
-                            log(TAG) { "Removed stale share for ${it.accountId}: $it" }
-                        }
+                val staleShares = shares.values.filter { !it.path.exists() }
+                if (staleShares.isNotEmpty()) {
+                    log(TAG, INFO) { "Removing ${staleShares.size} stale shares" }
+                    removeShares(staleShares.map { it.id })
                 }
                 // TODO increase
                 delay(10.seconds)
@@ -110,18 +105,16 @@ class ShareRepo @Inject constructor(
         }
     }
 
-
     suspend fun createShare(account: Account): Share = mutex.withLock {
         log(TAG) { "createShare(${account.id}): Creating share..." }
 
-        val data = Share.Data(
-            accountId = account.id
-        )
+        val data = Share.Data()
         val share = Share(
             data = data,
-            path = account.path.resolve("shares/${data.id}.json")
+            path = account.path.resolve("shares/${data.id}.json"),
+            accountId = account.id,
         )
-        if (shares.containsKey(share.code)) throw IllegalStateException("Share ID collision???")
+        if (shares.containsKey(share.id)) throw IllegalStateException("Share ID collision???")
 
         share.path.run {
             if (!parent.exists()) {
@@ -131,20 +124,38 @@ class ShareRepo @Inject constructor(
             writeText(serializer.encodeToString(share.data))
             log(TAG, VERBOSE) { "createShare(${account.id}): Written to $this" }
         }
-        shares[share.code] = share
+        shares[share.id] = share
         share.also { log(TAG) { "createShare(${account.id}): Share created created: $it" } }
     }
 
-    suspend fun getShare(code: ShareCode): Share? = mutex.withLock {
+    suspend fun getShare(code: ShareCode): Share? {
         log(TAG, VERBOSE) { "getShare($code)" }
-        shares[code]
+        return shares.values.find { it.code == code }
     }
 
-    suspend fun consumeShare(shareCode: ShareCode): Boolean = mutex.withLock {
-        log(TAG, VERBOSE) { "consumeShare($shareCode)" }
-        val removed = shares.remove(shareCode)
-        log(TAG) { "Share was consumed: $removed" }
-        removed != null
+    suspend fun consumeShare(code: ShareCode): Boolean {
+        log(TAG, VERBOSE) { "consumeShare($code)" }
+        val share = getShare(code) ?: return false
+        removeShares(listOf(share.id))
+        log(TAG) { "Share was consumed: $share" }
+        return true
+    }
+
+    suspend fun removeShares(ids: Collection<ShareId>) = mutex.withLock {
+        log(TAG) { "removeShares($ids)..." }
+        val toRemove = ids.mapNotNull { shares.remove(it) }
+        log(TAG) { "removeShares($ids): Deleting ${toRemove.size} shares" }
+        toRemove.forEach {
+            it.path.deleteIfExists()
+            log(TAG, VERBOSE) { "removeShares($ids): Share deleted $it" }
+        }
+    }
+
+    suspend fun removeSharesForAccount(accountId: AccountId) {
+        log(TAG) { "removeSharesForAccount($accountId)..." }
+        val toRemove = shares.filter { it.value.accountId == accountId }.map { it.key }
+        log(TAG) { "removeSharesForAccount($accountId): Deleting ${toRemove.size} shares" }
+        removeShares(toRemove)
     }
 
     companion object {

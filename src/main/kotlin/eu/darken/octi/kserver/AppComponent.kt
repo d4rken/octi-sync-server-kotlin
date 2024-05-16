@@ -11,7 +11,7 @@ import javax.inject.Singleton
     ]
 )
 interface AppComponent {
-    fun application(): Application
+    fun application(): App
 
     @Component.Builder
     interface Builder {

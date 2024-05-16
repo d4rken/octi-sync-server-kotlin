@@ -13,27 +13,31 @@ import java.util.*
 data class Device(
     val data: Data,
     val path: Path,
+    val accountId: AccountId,
     val sync: Mutex = Mutex(),
 ) {
     fun isAuthorized(credentials: DeviceCredentials): Boolean {
-        return data.accountId == credentials.accountId && data.password == credentials.devicePassword
+        return accountId == credentials.accountId && data.password == credentials.devicePassword
     }
 
     val id: DeviceId
         get() = data.id
 
-    val accountId: AccountId
-        get() = data.accountId
-
     val password: String
         get() = data.password
+
+    val label: String?
+        get() = data.label
+
+    val version: String?
+        get() = data.version
 
     @Serializable
     data class Data(
         @Contextual val id: DeviceId,
-        @Contextual val accountId: AccountId,
         val password: String = generateRandomKey(),
-        val label: String,
+        val label: String?,
+        val version: String?,
         @Contextual val addedAt: Instant = Instant.now(),
     )
 }

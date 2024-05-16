@@ -10,7 +10,7 @@ import java.nio.file.Path
 import javax.inject.Inject
 import kotlin.io.path.Path
 
-class Application @Inject constructor(
+class App @Inject constructor(
     val appScope: AppScope,
     private val router: Router,
 ) {

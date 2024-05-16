@@ -1,6 +1,5 @@
 package eu.darken.octi.kserver.common
 
-import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
@@ -37,7 +36,6 @@ fun Application.installRateLimit(config: RateLimitConfig = RateLimitConfig()) {
         }
     }
     intercept(ApplicationCallPipeline.Plugins) {
-        log { "Request size: ${call.request.receiveChannel().availableForRead}" }
         if (call.request.receiveChannel().availableForRead > config.maxBodySize) {
             call.respond(HttpStatusCode.PayloadTooLarge, "Request body is too large")
             finish()

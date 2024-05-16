@@ -11,11 +11,12 @@ import java.util.*
 
 data class Share(
     val data: Data,
+    val accountId: AccountId,
     val path: Path,
 ) {
 
-    val accountId: AccountId
-        get() = data.accountId
+    val id: ShareId
+        get() = data.id
 
     val code: ShareCode
         get() = data.code
@@ -26,7 +27,6 @@ data class Share(
     @Serializable
     data class Data(
         @Contextual val createdAt: Instant = Instant.now(),
-        @Contextual val accountId: AccountId,
         @Contextual val id: ShareId = UUID.randomUUID(),
         val code: ShareCode = generateRandomKey(),
     )
