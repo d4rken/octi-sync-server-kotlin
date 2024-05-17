@@ -6,7 +6,7 @@ import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import eu.darken.octi.kserver.common.verifyAuth
+import eu.darken.octi.kserver.common.verifyCaller
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -48,7 +48,7 @@ class DeviceRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.getDevices() {
-        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
+        val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
 
         val devices = deviceRepo.getDevices(callerDevice.accountId)
         val response = DevicesResponse(
@@ -64,7 +64,7 @@ class DeviceRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.deleteDevice(deviceId: DeviceId) {
-        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
+        val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
         val targetDevice = deviceRepo.getDevice(deviceId)
         if (targetDevice == null) {
             call.respond(HttpStatusCode.NotFound) { "Device not found $deviceId" }

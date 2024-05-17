@@ -4,12 +4,11 @@ import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.device.Device
-import eu.darken.octi.kserver.device.DeviceRepo
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.Path
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
@@ -18,102 +17,68 @@ import kotlin.io.path.*
 @Singleton
 class ModuleRepo @Inject constructor(
     private val serializer: Json,
-    private val deviceRepo: DeviceRepo,
 ) {
 
-    private val modules = ConcurrentHashMap<ModuleId, Module>()
-    private val mutex = Mutex()
-
-    init {
-//        runBlocking {
-//            deviceRepo.getAccounts()
-//                .asSequence()
-//                .mapNotNull { account ->
-//                    try {
-//                        Files
-//                            .newDirectoryStream(account.path.resolve(DEVICES_DIR))
-//                            .map { account to it }
-//                            .also { log(TAG) { "Listing devices for ${account.id}" } }
-//                    } catch (e: IOException) {
-//                        log(TAG, ERROR) { "Failed to list devices for $account" }
-//                        null
-//                    }
-//                }
-//                .flatten()
-//                .forEach { (account, deviceDir) ->
-//                    val deviceData = try {
-//                        serializer.decodeFromString<Device.Data>(deviceDir.resolve(DEVICE_FILENAME).readText())
-//                    } catch (e: IOException) {
-//                        log(TAG, ERROR) { "Failed to read $deviceDir: ${e.asLog()}" }
-//                        return@forEach
-//                    }
-//                    log(TAG) { "Device info loaded: $deviceData" }
-//                    devices[deviceData.id] = Device(
-//                        data = deviceData,
-//                        path = deviceDir,
-//                        accountId = account.id,
-//                    )
-//                }
-//            log(TAG, INFO) { "${devices.size} devices loaded into memory" }
-//        }
+    private fun Device.getModulePath(moduleId: ModuleId): Path {
+        val digest = MessageDigest.getInstance("SHA-1")
+        val hashBytes = digest.digest(moduleId.toByteArray())
+        val safeName = hashBytes.joinToString("") { "%02x".format(it) }
+        return path.resolve("$MODULES_DIR/$safeName")
     }
 
     suspend fun read(caller: Device, target: Device, moduleId: ModuleId): Module.Read {
-        log(TAG, VERBOSE) { "read($caller, $target, $moduleId)..." }
-        val module = modules[moduleId] ?: return Module.Read()
-        module.requireSameAccount(caller)
+        log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) reading..." }
+        val modulePath = target.getModulePath(moduleId)
 
-        return module.run {
-            sync.withLock {
-                path.run {
-                    if (!exists()) {
-                        Module.Read()
-                    } else {
-                        Module.Read(
-                            modifiedAt = path.resolve(BLOB_FILENAME).getLastModifiedTime().toInstant(),
-                            payload = path.resolve(BLOB_FILENAME).readBytes(),
-                        )
-                    }
-                }
+        return target.sync.withLock {
+            if (!modulePath.exists()) {
+                Module.Read()
+            } else {
+                Module.Read(
+                    modifiedAt = modulePath.resolve(BLOB_FILENAME).getLastModifiedTime().toInstant(),
+                    payload = modulePath.resolve(BLOB_FILENAME).readBytes(),
+                )
             }
+        }.also {
+            log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) ${it.size}B read" }
         }
     }
 
-    suspend fun write(device: Device, moduleId: ModuleId, payload: ByteArray) {
-        log(TAG, VERBOSE) { "write($device,$moduleId) payload is ${payload.size}B ..." }
-        val existing = modules.getOrPut(moduleId) {
-            Module(
-                accountId = device.accountId,
-                deviceId = device.id,
-                path = device.path.resolve("$MODULES_DIR/$moduleId"),
-                meta = Module.Meta(moduleId),
-            )
-        }
-        existing.apply {
-            sync.withLock {
-                path.apply {
-                    if (!parent.exists()) parent.createDirectory()
-                    if (!exists()) createDirectory()
-                    resolve(BLOB_FILENAME).writeBytes(payload)
-                    resolve(META_FILENAME).writeText(serializer.encodeToString(meta))
-                }
+    suspend fun write(caller: Device, target: Device, moduleId: ModuleId, write: Module.Write) {
+        log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) payload is ${write.size}B ..." }
+        val modulePath = target.getModulePath(moduleId)
+        val info = Module.Info(
+            id = moduleId,
+            source = caller.id,
+        )
+        target.sync.withLock {
+            modulePath.apply {
+                if (!parent.exists()) parent.createDirectory() // modules dir
+                if (!exists()) createDirectory() // specific module dir
+                resolve(BLOB_FILENAME).writeBytes(write.payload)
+                resolve(META_FILENAME).writeText(serializer.encodeToString(info))
             }
         }
+        log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) payload written" }
     }
 
-    suspend fun delete(device: Device, moduleId: ModuleId) {
-        log(TAG, VERBOSE) { "delete(${device.id},$moduleId): Deleting module..." }
-        val module = modules[moduleId] ?: throw IllegalArgumentException("$moduleId not found")
-        module.requireSameAccount(device)
-        module.sync.withLock {
-            modules.remove(moduleId)
-            module.path.deleteRecursively()
-            log(TAG) { "delete(${device.id},$moduleId): Module deleted $module" }
+    suspend fun delete(caller: Device, target: Device, moduleId: ModuleId) {
+        log(TAG, VERBOSE) { "delete(${caller.id}, ${target.id}, $moduleId): Deleting module..." }
+        val modulePath = target.getModulePath(moduleId)
+
+        target.sync.withLock {
+            if (!modulePath.exists()) {
+                log(TAG) { "delete(${caller.id}, ${target.id}, $moduleId): Module didn't exist" }
+                return
+            }
+            val info: Module.Info = serializer.decodeFromString(modulePath.resolve(META_FILENAME).readText())
+            modulePath.deleteRecursively()
+            log(TAG) { "delete(${caller.id}, ${target.id}, $moduleId): Module deleted $info" }
         }
     }
 
     companion object {
-        const val MODULES_DIR = "modules"
+        private const val MODULES_DIR = "modules"
         private const val META_FILENAME = "module.json"
         private const val BLOB_FILENAME = "payload.blob"
         private val TAG = logTag("Module", "Repo")

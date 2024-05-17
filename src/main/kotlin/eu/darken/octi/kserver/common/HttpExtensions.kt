@@ -26,7 +26,7 @@ val RoutingCall.headerDeviceId: DeviceId?
         ?.takeIf { it.isNotBlank() }
         ?.let { UUID.fromString(it) }
 
-suspend fun RoutingContext.verifyAuth(tag: String, deviceRepo: DeviceRepo): Device? {
+suspend fun RoutingContext.verifyCaller(tag: String, deviceRepo: DeviceRepo): Device? {
     val deviceId = call.headerDeviceId
     log(tag, VERBOSE) { "verifyAuth($callInfo): deviceId=$deviceId" }
 

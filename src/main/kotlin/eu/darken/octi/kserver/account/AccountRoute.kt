@@ -7,7 +7,7 @@ import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.common.headerDeviceId
-import eu.darken.octi.kserver.common.verifyAuth
+import eu.darken.octi.kserver.common.verifyCaller
 import eu.darken.octi.kserver.device.DeviceRepo
 import eu.darken.octi.kserver.device.deviceCredentials
 import io.ktor.http.*
@@ -109,7 +109,7 @@ class AccountRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.delete() {
-        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
+        val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
         log(TAG, INFO) { "delete(${callInfo}): Deleting account ${callerDevice.accountId}" }
 
         deviceRepo.deleteDevices(callerDevice.accountId)

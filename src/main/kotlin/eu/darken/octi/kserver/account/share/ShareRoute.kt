@@ -7,7 +7,7 @@ import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import eu.darken.octi.kserver.common.verifyAuth
+import eu.darken.octi.kserver.common.verifyCaller
 import eu.darken.octi.kserver.device.DeviceRepo
 import io.ktor.http.*
 import io.ktor.server.response.*
@@ -34,7 +34,7 @@ class ShareRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.createShare() {
-        val callerDevice = verifyAuth(TAG, deviceRepo) ?: return
+        val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
 
         val account = accountRepo.getAccount(callerDevice.accountId)
             ?: throw IllegalStateException("Account not found for $callerDevice")
