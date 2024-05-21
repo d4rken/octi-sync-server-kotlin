@@ -74,8 +74,8 @@ class DeviceRepo @Inject constructor(
                 devices.forEach { (id, device) ->
                     // TODO increase
                     if (Duration.between(device.lastSeen, now) < Duration.ofSeconds(120)) return@forEach
-
-
+                    log(TAG, WARN) { "Deleting stale device due to not being seen" }
+                    deleteDevice(id)
                 }
                 // TODO increase
                 delay(10.seconds)
@@ -84,6 +84,10 @@ class DeviceRepo @Inject constructor(
     }
 
     suspend fun allDevices(): Collection<Device> = devices.values.toList()
+
+    private fun Device.writeDevice() {
+        path.resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))
+    }
 
     suspend fun createDevice(
         account: Account,
@@ -113,9 +117,9 @@ class DeviceRepo @Inject constructor(
                     createDirectory()
                     log(TAG) { "Created dir for $this" }
                 }
-                resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))
-                log(TAG, VERBOSE) { "Device written: $this" }
             }
+            device.writeDevice()
+            log(TAG, VERBOSE) { "Device written: $this" }
             devices[device.id] = device
         }
         log(TAG) { "createDevice(): Device created $device" }
@@ -160,6 +164,16 @@ class DeviceRepo @Inject constructor(
                 device.path.deleteRecursively()
                 log(TAG) { "deleteDevices($accountId): Device deleted: $device" }
             }
+        }
+    }
+
+    suspend fun updateDevice(id: DeviceId, action: (Device.Data) -> Device.Data) {
+        log(TAG, VERBOSE) { "updateDevice($id)..." }
+        val device = devices.values.find { it.id == id } ?: return
+        device.sync.withLock {
+            val newDevice = device.copy(data = action(device.data))
+            newDevice.writeDevice()
+            devices[id] = newDevice
         }
     }
 

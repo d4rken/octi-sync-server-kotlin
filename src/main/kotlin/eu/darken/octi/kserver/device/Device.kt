@@ -42,7 +42,7 @@ data class Device(
         val label: String?,
         val version: String?,
         @Contextual val addedAt: Instant = Instant.now(),
-        @Contextual val lastSeen: Instant,
+        @Contextual val lastSeen: Instant = Instant.now(),
     )
 }
 

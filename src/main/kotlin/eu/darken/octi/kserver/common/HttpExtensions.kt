@@ -12,6 +12,7 @@ import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.time.Instant
 import java.util.*
 
 val RoutingContext.callInfo: String
@@ -55,6 +56,10 @@ suspend fun RoutingContext.verifyCaller(tag: String, deviceRepo: DeviceRepo): De
         log(tag, WARN) { "verifyAuth($callInfo): deviceId=$deviceId credentials not authorized" }
         call.respond(HttpStatusCode.Unauthorized, "Device credentials not found or insufficient")
         return null
+    }
+
+    deviceRepo.updateDevice(device.id) {
+        it.copy(lastSeen = Instant.now())
     }
 
     return device
