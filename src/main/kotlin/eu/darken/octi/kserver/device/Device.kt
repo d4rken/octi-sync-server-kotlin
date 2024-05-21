@@ -32,6 +32,9 @@ data class Device(
     val version: String?
         get() = data.version
 
+    val lastSeen: Instant
+        get() = data.lastSeen
+
     @Serializable
     data class Data(
         @Contextual val id: DeviceId,
@@ -39,6 +42,7 @@ data class Device(
         val label: String?,
         val version: String?,
         @Contextual val addedAt: Instant = Instant.now(),
+        @Contextual val lastSeen: Instant,
     )
 }
 

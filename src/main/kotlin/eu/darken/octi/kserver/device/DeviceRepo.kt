@@ -3,27 +3,32 @@ package eu.darken.octi.kserver.device
 import eu.darken.octi.kserver.account.Account
 import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.account.AccountRepo
+import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Files
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class DeviceRepo @Inject constructor(
     private val serializer: Json,
     private val accountsRepo: AccountRepo,
+    private val appScope: AppScope,
 ) {
 
     private val devices = ConcurrentHashMap<DeviceId, Device>()
@@ -61,7 +66,24 @@ class DeviceRepo @Inject constructor(
                 }
             log(TAG, INFO) { "${devices.size} devices loaded into memory" }
         }
+        appScope.launch {
+            // TODO increase
+            delay(10.seconds)
+            while (currentCoroutineContext().isActive) {
+                val now = Instant.now()
+                devices.forEach { (id, device) ->
+                    // TODO increase
+                    if (Duration.between(device.lastSeen, now) < Duration.ofSeconds(120)) return@forEach
+
+
+                }
+                // TODO increase
+                delay(10.seconds)
+            }
+        }
     }
+
+    suspend fun allDevices(): Collection<Device> = devices.values.toList()
 
     suspend fun createDevice(
         account: Account,

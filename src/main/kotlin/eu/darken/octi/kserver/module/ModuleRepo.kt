@@ -1,9 +1,15 @@
 package eu.darken.octi.kserver.module
 
+import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.device.Device
+import eu.darken.octi.kserver.device.DeviceRepo
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,12 +18,31 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class ModuleRepo @Inject constructor(
     private val serializer: Json,
+    private val appScope: AppScope,
+    private val deviceRepo: DeviceRepo,
 ) {
+
+    init {
+        appScope.launch {
+            // TODO increase
+            delay(10.seconds)
+            while (currentCoroutineContext().isActive) {
+                deviceRepo.allDevices().forEach { device ->
+                    device.sync.withLock {
+
+                    }
+                }
+                // TODO increase
+                delay(10.seconds)
+            }
+        }
+    }
 
     private fun Device.getModulePath(moduleId: ModuleId): Path {
         val digest = MessageDigest.getInstance("SHA-1")
