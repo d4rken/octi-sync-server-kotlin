@@ -23,9 +23,10 @@ import kotlinx.serialization.modules.SerializersModule
 import java.util.*
 import javax.inject.Inject
 
-class Router @Inject constructor(
+class Server @Inject constructor(
+    private val config: App.Config,
     private val statusRoute: StatusRoute,
-    private val authRoute: AccountRoute,
+    private val accountRoute: AccountRoute,
     private val shareRoute: ShareRoute,
     private val deviceRoute: DeviceRoute,
     private val moduleRoute: ModuleRoute,
@@ -34,7 +35,7 @@ class Router @Inject constructor(
 
     @Suppress("ExtractKtorModule")
     private val server by lazy {
-        embeddedServer(Netty, 8080) {
+        embeddedServer(Netty, config.port) {
             installCallLogging()
             install(ContentNegotiation) {
                 json(Json {
@@ -49,18 +50,37 @@ class Router @Inject constructor(
                     call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
                 }
                 statusRoute.setup(this)
-                authRoute.setup(this)
+                accountRoute.setup(this)
                 shareRoute.setup(this)
                 deviceRoute.setup(this)
                 moduleRoute.setup(this)
             }
         }
     }
+    private var isRunning = false
 
     fun start() {
-        log(TAG, INFO) { "Router is starting..." }
+        log(TAG, INFO) { "Server is starting..." }
+        server.monitor.apply {
+            subscribe(ApplicationStarted) {
+                log(TAG, INFO) { "Server is ready" }
+                isRunning = true
+            }
+            subscribe(ApplicationStopping) {
+                log(TAG, INFO) { "Server is stopping..." }
+                isRunning = false
+            }
+        }
         server.start(wait = true)
     }
+
+    fun stop() {
+        log(TAG, INFO) { "Server is stopping..." }
+        server.stop(gracePeriodMillis = 1000, timeoutMillis = 5000)
+        log(TAG, INFO) { "Server stopped" }
+    }
+
+    fun isRunning(): Boolean = isRunning
 
     companion object {
         private val TAG = logTag("Router")

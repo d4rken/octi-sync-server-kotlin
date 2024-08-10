@@ -19,11 +19,10 @@ class DeviceRoute @Inject constructor(
     private val deviceRepo: DeviceRepo,
 ) {
 
-    fun setup(rootRoute: RootRoute) {
+    fun setup(rootRoute: RootRouting) {
         rootRoute.route("/v1/devices") {
             get {
                 try {
-
                     log(TAG, ERROR) { "$call" }
                     getDevices()
                 } catch (e: Exception) {

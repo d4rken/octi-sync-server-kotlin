@@ -11,40 +11,59 @@ import javax.inject.Inject
 import kotlin.io.path.Path
 
 class App @Inject constructor(
+    private val config: Config,
     val appScope: AppScope,
-    private val router: Router,
+    private val server: Server,
 ) {
 
-    fun launch() {
-        router.start()
+    init {
+        if (config.isDebug) {
+            println("Debug mode enabled")
+            if (Logging.loggers.none { it is ConsoleLogger }) {
+                Logging.install(ConsoleLogger())
+            }
+            log(TAG, INFO) { "Debug mode is active" }
+        }
+        log(TAG, INFO) { "App config is $config" }
     }
 
-    companion object {
-        var isDebug = false
-        lateinit var dataPath: Path
+    fun launch() {
+        server.start()
+    }
 
+    fun isRunning(): Boolean {
+        return server.isRunning()
+    }
+
+    fun shutdown() {
+        server.stop()
+    }
+
+    data class Config(
+        val isDebug: Boolean,
+        val port: Int,
+        val dataPath: Path,
+    )
+
+    companion object {
         @JvmStatic
         fun main(args: Array<String>) {
             println("Program arguments: ${args.joinToString()}")
 
-            args.forEach {
-                when {
-                    it.startsWith("--debug") -> isDebug = true
-                    it.startsWith("--datapath=") -> dataPath = Path(it.substringAfter('='))
-                }
+            val config = Config(
+                isDebug = args.any { it.startsWith("--debug") },
+                port = args
+                    .singleOrNull { it.startsWith("--port") }
+                    ?.substringAfter('=')?.toInt()
+                    ?: 8080,
+                dataPath = args
+                    .single { it.startsWith("--datapath") }
+                    .let { Path(it.substringAfter('=')) }
+            )
+
+            DaggerAppComponent.builder().config(config).build().application().apply {
+                launch()
             }
-
-            if (isDebug) {
-                println("Debug mode enabled")
-                Logging.install(ConsoleLogger())
-                log(TAG, INFO) { "Debug mode is active" }
-            }
-
-            log(TAG, INFO) { "Data path is $dataPath" }
-
-            val comp = DaggerAppComponent.builder().build()
-            val app = comp.application()
-            app.launch()
         }
 
         private val TAG = logTag("App")

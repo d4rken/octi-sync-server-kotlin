@@ -9,7 +9,7 @@ class StatusRoute @Inject constructor(
 
 ) {
 
-    fun setup(rootRoute: RootRoute) {
+    fun setup(rootRoute: RootRouting) {
         rootRoute.get("/v1/status") {
             call.respondText(
                 "Status: ${call.application.developmentMode}",

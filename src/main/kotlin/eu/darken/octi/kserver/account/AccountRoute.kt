@@ -23,7 +23,7 @@ class AccountRoute @Inject constructor(
     private val shareRepo: ShareRepo,
 ) {
 
-    fun setup(rootRoute: RootRoute) {
+    fun setup(rootRoute: RootRouting) {
         rootRoute.route("/v1/account") {
             this.post {
                 try {
@@ -72,6 +72,7 @@ class AccountRoute @Inject constructor(
 
         // Try linking device to account
         val account = if (shareCode != null) {
+            // TODO try to consume and get in one go to prevent race conditions
             val share = shareRepo.getShare(shareCode)
             if (share == null) {
                 log(TAG, WARN) { "create($callInfo): Could not resolve ShareCode" }
@@ -91,7 +92,7 @@ class AccountRoute @Inject constructor(
             log(TAG, INFO) { "create($callInfo): No ShareCode and Account does not exist, create one" }
             accountRepo.createAccount()
         }
-
+        // TODO can share be consumed and then error prevents creation?
         device = deviceRepo.createDevice(
             deviceId = deviceId,
             account = account,

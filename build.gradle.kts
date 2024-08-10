@@ -1,8 +1,8 @@
 plugins {
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "1.9.24"
     application
-    kotlin("kapt") version "1.9.21"
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("kapt") version "1.9.24"
+    kotlin("plugin.serialization") version "1.9.24"
 }
 
 group = "eu.darken"
@@ -13,30 +13,36 @@ repositories {
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
 
-    implementation("com.google.dagger:dagger:2.49")
-    kapt("com.google.dagger:dagger-compiler:2.49")
+    implementation("com.google.dagger:dagger:2.51")
+    kapt("com.google.dagger:dagger-compiler:2.51")
 
-    val ktor_version = "3.0.0-beta-1"
+    val ktor_version = "3.0.0-beta-2"
     implementation("io.ktor:ktor-server-core:$ktor_version")
     implementation("io.ktor:ktor-server-netty:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
     implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+    testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
+
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    implementation("io.github.oshai:kotlin-logging-jvm:5.1.0")
-    implementation("ch.qos.logback:logback-classic:1.4.14")
+    implementation("ch.qos.logback:logback-classic:1.3.14")
+
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
+    testImplementation("io.kotest:kotest-assertions-core:5.9.1")
 }
 
 tasks.test {
     useJUnitPlatform()
 }
 
-kotlin {
-    jvmToolchain(8)
-}
+//kotlin {
+//    jvmToolchain(8)
+//}
 
 application {
     mainClass.set("MainKt")

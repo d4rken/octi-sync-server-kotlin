@@ -28,10 +28,11 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class AccountRepo @Inject constructor(
+    private val config: App.Config,
     private val serializer: Json,
     private val appScope: AppScope,
 ) {
-    private val accountsPath = App.dataPath.resolve("accounts").apply {
+    private val accountsPath = config.dataPath.resolve("accounts").apply {
         if (!exists()) {
             Files.createDirectories(this)
             log(TAG) { "Created $this" }

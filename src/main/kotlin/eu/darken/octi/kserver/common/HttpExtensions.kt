@@ -25,7 +25,14 @@ val RoutingContext.callInfo: String
 val RoutingCall.headerDeviceId: DeviceId?
     get() = request.header("X-Device-ID")
         ?.takeIf { it.isNotBlank() }
-        ?.let { UUID.fromString(it) }
+        ?.let {
+            try {
+                UUID.fromString(it)
+            } catch (e: IllegalArgumentException) {
+                log(WARN) { "Invalid device ID" }
+                null
+            }
+        }
 
 suspend fun RoutingContext.verifyCaller(tag: String, deviceRepo: DeviceRepo): Device? {
     val deviceId = call.headerDeviceId
