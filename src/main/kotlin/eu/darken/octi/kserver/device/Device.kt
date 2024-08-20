@@ -26,9 +26,6 @@ data class Device(
     val password: String
         get() = data.password
 
-    val label: String?
-        get() = data.label
-
     val version: String?
         get() = data.version
 
@@ -39,7 +36,6 @@ data class Device(
     data class Data(
         @Contextual val id: DeviceId,
         val password: String = generateRandomKey(),
-        val label: String?,
         val version: String?,
         @Contextual val addedAt: Instant = Instant.now(),
         @Contextual val lastSeen: Instant = Instant.now(),

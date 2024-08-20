@@ -54,7 +54,6 @@ class DeviceRoute @Inject constructor(
             devices = devices.map {
                 DevicesResponse.Device(
                     id = it.id,
-                    label = it.label,
                     version = it.version,
                 )
             }

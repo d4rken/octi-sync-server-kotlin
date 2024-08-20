@@ -43,6 +43,7 @@ class App @Inject constructor(
         val isDebug: Boolean,
         val port: Int,
         val dataPath: Path,
+        val useRateLimit: Boolean = true,
     )
 
     companion object {
@@ -58,7 +59,7 @@ class App @Inject constructor(
                     ?: 8080,
                 dataPath = args
                     .single { it.startsWith("--datapath") }
-                    .let { Path(it.substringAfter('=')) }
+                    .let { Path(it.substringAfter('=')) },
             )
 
             DaggerAppComponent.builder().config(config).build().application().apply {

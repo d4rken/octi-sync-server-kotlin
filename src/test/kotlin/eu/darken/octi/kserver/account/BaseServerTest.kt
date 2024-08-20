@@ -32,6 +32,7 @@ abstract class BaseServerTest {
         dataPath = dataPath,
         port = 8080,
         isDebug = true,
+        useRateLimit = false,
     )
 
     @BeforeEach

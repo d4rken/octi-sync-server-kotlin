@@ -21,6 +21,7 @@ class AccountFlowTest : BaseServerTest() {
     fun `creating a new account`() = runTest2 {
         val creds = post(endpoint) {
             addDeviceId(deviceId)
+            addUserAgent()
         }.apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldMatch """\{\s*"account":\s*"[0-9a-fA-F-]{36}",\s*"password":\s*"[0-9a-fA-F]{128}"\s*\}""".toRegex()

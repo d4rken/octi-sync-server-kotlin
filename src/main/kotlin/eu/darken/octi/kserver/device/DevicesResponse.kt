@@ -11,7 +11,6 @@ data class DevicesResponse(
     @Serializable
     data class Device(
         @Contextual @SerialName("id") val id: DeviceId,
-        @SerialName("label") val label: String?,
         @SerialName("version") val version: String?,
     )
 }

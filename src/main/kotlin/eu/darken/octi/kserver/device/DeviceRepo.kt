@@ -93,11 +93,9 @@ class DeviceRepo @Inject constructor(
         account: Account,
         deviceId: DeviceId,
         version: String?,
-        label: String?,
     ): Device {
         val data = Device.Data(
             id = deviceId,
-            label = label,
             version = version,
         )
         val device = Device(

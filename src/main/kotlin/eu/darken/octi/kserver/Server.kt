@@ -44,7 +44,7 @@ class Server @Inject constructor(
                     serializersModule = serializers
                 })
             }
-            installRateLimit()
+            if (config.useRateLimit) installRateLimit()
             routing {
                 get("/v1") {
                     call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
