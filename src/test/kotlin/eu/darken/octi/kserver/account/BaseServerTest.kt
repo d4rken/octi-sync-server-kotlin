@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.concurrent.thread
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
@@ -75,4 +76,7 @@ abstract class BaseServerTest {
         }
     }
 
+    fun Credentials.getAccountPath(): Path {
+        return dataPath.resolve("accounts").resolve(this.account)
+    }
 }

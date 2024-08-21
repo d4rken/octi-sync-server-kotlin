@@ -7,6 +7,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
+import java.util.*
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
@@ -15,66 +16,43 @@ class AccountShareFlowTest : BaseServerTest() {
 
     private val endpointAcc = "/v1/account"
     private val endpointShare = "$endpointAcc/share"
-    private val deviceId1 = "34ac3ec4-7d08-4e7c-99f3-6f07da677307"
-    private val deviceId2 = "d25f7800-00b2-410c-94af-d02c5ed8a529"
-    private val deviceId3 = "d402f8aa-b609-4e42-8732-b02823151626"
-    private val accountsPath = dataPath.resolve("accounts")
 
     @Test
     fun `linking via sharecode`() = runTest2 {
-        val creds1 = post(endpointAcc) { addDeviceId(deviceId1) }.asCredentials()
-        val accPath = accountsPath.resolve(creds1.account)
+        val creds1 = createDevice()
 
-        val shareCode = post(endpointShare) {
-            addDeviceId(deviceId1)
-            addAuth(creds1)
-        }.asMap()["code"]!!
+        val shareCode = createShareCode(creds1)
 
-        accPath.resolve("shares").apply {
+        creds1.getAccountPath().resolve("shares").apply {
             exists() shouldBe true
             listDirectoryEntries().first().readText() shouldContain shareCode
         }
 
-        val creds2 = post {
-            url {
-                takeFrom(endpointAcc)
-                parameters.append("share", shareCode)
-            }
-            addDeviceId(deviceId2)
-        }.asCredentials()
+        val creds2 = createDevice(shareCode = shareCode)
 
         creds1.account shouldBe creds2.account
     }
 
     @Test
     fun `no cross use`() = runTest2 {
-        val creds1 = post(endpointAcc) { addDeviceId(deviceId1) }.asCredentials()
+        val creds1 = createDevice()
 
-        val shareCode1 = post(endpointShare) {
-            addDeviceId(deviceId1)
-            addAuth(creds1)
-        }.asMap()["code"]!!
+        val shareCode = createShareCode(creds1)
 
-        val creds2 = post(endpointAcc) { addDeviceId(deviceId2) }.asCredentials()
-        val creds3 = post {
-            url {
-                takeFrom(endpointAcc)
-                parameters.append("share", shareCode1)
-            }
-            addDeviceId(deviceId3)
-        }.asCredentials()
+        val creds2 = createDevice()
+        val creds3 = createDevice(shareCode = shareCode)
 
         creds1.account shouldNotBe creds2.account
         creds2.account shouldNotBe creds3.account
     }
 
     @Test
-    fun `need verified account to create a share`() = runTest2 {
-        val creds1 = post(endpointAcc) { addDeviceId(deviceId1) }.asCredentials()
+    fun `creating share requires matching auth`() = runTest2 {
+        val creds1 = createDevice()
 
         post(endpointShare) {
-            addDeviceId(deviceId2)
-            addAuth(creds1)
+            addDeviceId(UUID.randomUUID())
+            addAuth(creds1.auth)
         }.apply {
             status shouldBe HttpStatusCode.NotFound
             bodyAsText() shouldContain "Unknown device"
@@ -82,29 +60,33 @@ class AccountShareFlowTest : BaseServerTest() {
     }
 
     @Test
-    fun `no double register`() = runTest2 {
-        val creds1 = post(endpointAcc) { addDeviceId(deviceId1) }.asCredentials()
-        val shareCode1 = post(endpointShare) {
-            addDeviceId(deviceId1)
-            addAuth(creds1)
-        }.asMap()["code"]!!
+    fun `creating share requires valid auth`() = runTest2 {
+        val creds1 = createDevice()
 
-        val creds2 = post {
-            url {
-                takeFrom(endpointAcc)
-                parameters.append("share", shareCode1)
-            }
-            addDeviceId(deviceId2)
-        }.asCredentials()
+        post(endpointShare) {
+            addDeviceId(creds1.deviceId)
+            addAuth(creds1.auth.copy(password = "abc"))
+        }.apply {
+            status shouldBe HttpStatusCode.Unauthorized
+            bodyAsText() shouldContain "Device credentials not found or insufficient"
+        }
+    }
+
+    @Test
+    fun `no double register`() = runTest2 {
+        val creds1 = createDevice()
+        val shareCode = createShareCode(creds1)
+
+        val creds2 = createDevice(shareCode = shareCode)
 
         creds1.account shouldBe creds2.account
 
         post {
             url {
                 takeFrom(endpointAcc)
-                parameters.append("share", shareCode1)
+                parameters.append("share", shareCode)
             }
-            addDeviceId(deviceId2)
+            addDeviceId(creds2.deviceId)
         }.apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldContain "Device is already registered"
@@ -113,19 +95,16 @@ class AccountShareFlowTest : BaseServerTest() {
 
     @Test
     fun `no double use`() = runTest2 {
-        val creds1 = post(endpointAcc) { addDeviceId(deviceId1) }.asCredentials()
-        val shareCode1 = post(endpointShare) {
-            addDeviceId(deviceId1)
-            addAuth(creds1)
-        }.asMap()["code"]!!
+        val creds1 = createDevice()
+        val shareCode1 = createShareCode(creds1)
 
         val creds2 = post {
             url {
                 takeFrom(endpointAcc)
                 parameters.append("share", shareCode1)
             }
-            addDeviceId(deviceId2)
-        }.asCredentials()
+            addDeviceId(UUID.randomUUID())
+        }.asAuth()
 
         creds1.account shouldBe creds2.account
 
@@ -134,7 +113,7 @@ class AccountShareFlowTest : BaseServerTest() {
                 takeFrom(endpointAcc)
                 parameters.append("share", shareCode1)
             }
-            addDeviceId(deviceId3)
+            addDeviceId(UUID.randomUUID())
         }.apply {
             status shouldBe HttpStatusCode.Forbidden
             bodyAsText() shouldContain "Invalid ShareCode"

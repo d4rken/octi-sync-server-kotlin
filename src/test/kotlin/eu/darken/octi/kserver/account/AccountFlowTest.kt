@@ -8,25 +8,24 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
+import java.util.*
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 
 class AccountFlowTest : BaseServerTest() {
 
     private val endpoint = "/v1/account"
-    private val deviceId = "34ac3ec4-7d08-4e7c-99f3-6f07da677307"
-    private val accountsPath = dataPath.resolve("accounts")
 
     @Test
     fun `creating a new account`() = runTest2 {
-        val creds = post(endpoint) {
+        val deviceId = UUID.randomUUID()
+        val auth = post(endpoint) {
             addDeviceId(deviceId)
-            addUserAgent()
         }.apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldMatch """\{\s*"account":\s*"[0-9a-fA-F-]{36}",\s*"password":\s*"[0-9a-fA-F]{128}"\s*\}""".toRegex()
-        }.asCredentials()
-        accountsPath.resolve(creds.account).apply {
+        }.asAuth()
+        Credentials(deviceId, auth).getAccountPath().apply {
             exists() shouldBe true
             resolve("account.json").apply {
                 exists() shouldBe true
@@ -43,7 +42,9 @@ class AccountFlowTest : BaseServerTest() {
         }
 
         post(endpoint) {
-            addDeviceId("something")
+            headers {
+                append("X-Device-ID", "something")
+            }
         }.apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "X-Device-ID header is missing"
@@ -52,6 +53,7 @@ class AccountFlowTest : BaseServerTest() {
 
     @Test
     fun `no double creation`() = runTest2 {
+        val deviceId = UUID.randomUUID()
         post(endpoint) {
             addDeviceId(deviceId)
         }
@@ -65,28 +67,23 @@ class AccountFlowTest : BaseServerTest() {
 
     @Test
     fun `deleting an account`() = runTest2 {
-        val creds1 = post(endpoint) {
-            addDeviceId(deviceId)
-        }.asCredentials()
-        accountsPath.resolve(creds1.account).apply {
+        val creds1 = createDevice()
+        creds1.getAccountPath().apply {
             exists() shouldBe true
             resolve("account.json").exists() shouldBe true
         }
         delete(endpoint) {
-            addDeviceId(deviceId)
-            addAuth(creds1)
+            addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldBe ""
         }
 
-        accountsPath.resolve(creds1.account).apply {
+        creds1.getAccountPath().apply {
             exists() shouldBe false
         }
 
-        val creds2 = post(endpoint) {
-            addDeviceId(deviceId)
-        }.asCredentials()
+        val creds2 = createDevice(creds1.deviceId)
 
         creds1 shouldNotBe creds2
     }
