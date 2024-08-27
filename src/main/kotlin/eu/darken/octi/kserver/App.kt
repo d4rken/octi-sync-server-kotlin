@@ -79,6 +79,14 @@ class App @Inject constructor(
                 },
             )
 
+            if (config.isDebug) {
+                println("Debug mode enabled")
+                if (Logging.loggers.none { it is ConsoleLogger }) {
+                    Logging.install(ConsoleLogger())
+                }
+                log(TAG, INFO) { "Debug mode is active" }
+            }
+
             DaggerAppComponent.builder().config(config).build().application().apply {
                 launch()
             }

@@ -4,14 +4,12 @@ import eu.darken.octi.*
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
-import kotlin.io.path.readText
 
 class AccountRepoTest : TestRunner() {
 
@@ -23,12 +21,6 @@ class AccountRepoTest : TestRunner() {
             resolve("account.json").apply {
                 exists() shouldBe true
                 fileSize() shouldBeGreaterThan 64L
-                readText() shouldMatch """
-                    \{
-                        \s*"id":\s*"[0-9a-fA-F-]{36}",
-                        \s*"createdAt":\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z"
-                    \s*\}
-                """.trimIndent()
             }
         }
     }

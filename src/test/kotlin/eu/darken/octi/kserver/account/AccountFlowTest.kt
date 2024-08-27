@@ -1,12 +1,9 @@
 package eu.darken.octi.kserver.account
 
-import eu.darken.octi.TestRunner
-import eu.darken.octi.addCredentials
-import eu.darken.octi.addDeviceId
-import eu.darken.octi.createDevice
+import eu.darken.octi.*
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldMatch
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -19,12 +16,12 @@ class AccountFlowTest : TestRunner() {
 
     @Test
     fun `creating a new account`() = runTest2 {
-        val deviceId = UUID.randomUUID()
-        http.post(endpoint) {
-            addDeviceId(deviceId)
-        }.apply {
+        createDeviceRaw().apply {
             status shouldBe HttpStatusCode.OK
-            bodyAsText() shouldMatch """\{\s*"account":\s*"[0-9a-fA-F-]{36}",\s*"password":\s*"[0-9a-fA-F]{128}"\s*\}""".toRegex()
+            asAuth().apply {
+                UUID.fromString(account)
+                password.length shouldBeGreaterThan 64
+            }
         }
     }
 

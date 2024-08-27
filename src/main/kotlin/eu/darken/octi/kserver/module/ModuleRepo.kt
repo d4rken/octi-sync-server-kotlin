@@ -46,7 +46,6 @@ class ModuleRepo @Inject constructor(
                             val staleModules = modulePath.listDirectoryEntries().filter { path ->
                                 val metaFile = path.resolve(META_FILENAME)
                                 val lastAccessed = metaFile.getLastModifiedTime().toInstant()
-                                log(TAG) { "DUR ${Duration.between(lastAccessed, now)}" }
                                 Duration.between(lastAccessed, now) > config.moduleExpiration
                             }
                             if (staleModules.isNotEmpty()) {
