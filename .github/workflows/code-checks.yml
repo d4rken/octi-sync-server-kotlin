@@ -9,12 +9,6 @@ on:
 jobs:
   build-modules:
     name: Build apps
-    strategy:
-      fail-fast: false
-      matrix:
-        flavor: [ Foss,Gplay ]
-        variant: [ Debug ]
-        module: [ app ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
@@ -22,7 +16,7 @@ jobs:
       - name: Setup project and build environment
         uses: ./.github/actions/common-setup
       - name: Build modules
-        run: ./gradlew build
+        run: ./gradlew assemble
 
   run-tests:
     name: Run tests
