@@ -3,6 +3,7 @@ plugins {
     application
     kotlin("kapt") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.24"
+    id("io.ktor.plugin") version "3.0.0-beta-2"
 }
 
 group = "eu.darken"
@@ -13,7 +14,6 @@ repositories {
 }
 
 dependencies {
-
     implementation("com.google.dagger:dagger:2.51")
     kapt("com.google.dagger:dagger-compiler:2.51")
 
@@ -41,10 +41,6 @@ tasks.test {
     useJUnitPlatform()
 }
 
-//kotlin {
-//    jvmToolchain(8)
-//}
-
 application {
-    mainClass.set("MainKt")
+    mainClass.set("eu.darken.octi.kserver.App")
 }
