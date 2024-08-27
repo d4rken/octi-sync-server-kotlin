@@ -1,6 +1,6 @@
 package eu.darken.octi.kserver.module
 
-import eu.darken.octi.kserver.*
+import eu.darken.octi.*
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -8,22 +8,22 @@ import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import java.util.*
 
-class ModuleFlowTest : BaseServerTest() {
+class ModuleFlowTest : TestRunner() {
 
     private val endpointModules = "/v1/modules"
 
     @Test
     fun `module id format needs to match`() = runTest2 {
         val creds = createDevice()
-        readModule(creds, "123").apply {
+        readModuleRaw(creds, "123").apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "Invalid moduleId"
         }
-        readModule(creds, "abc...").apply {
+        readModuleRaw(creds, "abc...").apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "Invalid moduleId"
         }
-        readModule(creds, "eu.darken.octi.module.core.meta").apply {
+        readModuleRaw(creds, "eu.darken.octi.module.core.meta").apply {
             status shouldBe HttpStatusCode.NoContent
         }
     }
@@ -31,11 +31,11 @@ class ModuleFlowTest : BaseServerTest() {
     @Test
     fun `module ids have size limits`() = runTest2 {
         val creds = createDevice()
-        readModule(creds, "a".repeat(1025)).apply {
+        readModuleRaw(creds, "a".repeat(1025)).apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "Invalid moduleId"
         }
-        readModule(creds, "a".repeat(1024)).apply {
+        readModuleRaw(creds, "a".repeat(1024)).apply {
             status shouldBe HttpStatusCode.NoContent
         }
     }
@@ -57,7 +57,7 @@ class ModuleFlowTest : BaseServerTest() {
     @Test
     fun `get module - target device needs to exist`() = runTest2 {
         val creds = createDevice()
-        readModule(creds, "abc", deviceId = UUID.randomUUID()).apply {
+        readModuleRaw(creds, "abc", deviceId = UUID.randomUUID()).apply {
             status shouldBe HttpStatusCode.NotFound
             bodyAsText() shouldBe "Target device not found"
         }
@@ -67,7 +67,7 @@ class ModuleFlowTest : BaseServerTest() {
     fun `get module - target device needs to be on the same account`() = runTest2 {
         val creds1 = createDevice()
         val creds2 = createDevice()
-        readModule(creds1, "abc", creds2.deviceId).apply {
+        readModuleRaw(creds1, "abc", creds2.deviceId).apply {
             status shouldBe HttpStatusCode.Unauthorized
             bodyAsText() shouldBe "Devices don't share the same account"
         }
@@ -76,7 +76,7 @@ class ModuleFlowTest : BaseServerTest() {
     @Test
     fun `get module - no data`() = runTest2 {
         val creds = createDevice()
-        readModule(creds, "abc").apply {
+        readModuleRaw(creds, "abc").apply {
             status shouldBe HttpStatusCode.NoContent
             bodyAsText() shouldBe ""
         }
@@ -86,11 +86,11 @@ class ModuleFlowTest : BaseServerTest() {
     fun `write and read module`() = runTest2 {
         val creds = createDevice()
         val testData = UUID.randomUUID().toString()
-        writeModule(creds, "abc", body = testData).apply {
+        writeModule(creds, "abc", data = testData).apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldBe ""
         }
-        readModule(creds, "abc").apply {
+        readModuleRaw(creds, "abc").apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldBe testData
         }
@@ -101,7 +101,7 @@ class ModuleFlowTest : BaseServerTest() {
         val creds1 = createDevice()
         writeModule(creds1, "abc", creds1.deviceId, "test")
         val creds2 = createDevice(creds1)
-        readModule(creds2, "abc", creds1.deviceId).bodyAsText() shouldBe "test"
+        readModuleRaw(creds2, "abc", creds1.deviceId).bodyAsText() shouldBe "test"
     }
 
     @Test
@@ -137,19 +137,19 @@ class ModuleFlowTest : BaseServerTest() {
     @Test
     fun `set module - overwrite data`() = runTest2 {
         val creds = createDevice()
-        writeModule(creds, "abc", body = "test1")
-        readModule(creds, "abc").bodyAsText() shouldBe "test1"
-        writeModule(creds, "abc", body = "test2")
-        readModule(creds, "abc").bodyAsText() shouldBe "test2"
+        writeModule(creds, "abc", data = "test1")
+        readModuleRaw(creds, "abc").bodyAsText() shouldBe "test1"
+        writeModule(creds, "abc", data = "test2")
+        readModuleRaw(creds, "abc").bodyAsText() shouldBe "test2"
     }
 
     @Test
     fun `set module - payload limit`() = runTest2 {
         val creds = createDevice()
-        writeModule(creds, "abc", body = "a".repeat((128 * 1024) + 1)).apply {
+        writeModule(creds, "abc", data = "a".repeat((128 * 1024) + 1)).apply {
             status shouldBe HttpStatusCode.PayloadTooLarge
         }
-        writeModule(creds, "abc", body = "a".repeat(128 * 1024)).apply {
+        writeModule(creds, "abc", data = "a".repeat(128 * 1024)).apply {
             status shouldBe HttpStatusCode.OK
         }
     }
@@ -185,22 +185,22 @@ class ModuleFlowTest : BaseServerTest() {
     @Test
     fun `delete module`() = runTest2 {
         val creds = createDevice()
-        writeModule(creds, "abc", body = "test")
-        readModule(creds, "abc").bodyAsText() shouldBe "test"
+        writeModule(creds, "abc", data = "test")
+        readModuleRaw(creds, "abc").bodyAsText() shouldBe "test"
         deleteModule(creds, "abc")
-        readModule(creds, "abc").bodyAsText() shouldBe ""
+        readModuleRaw(creds, "abc").bodyAsText() shouldBe ""
     }
 
     @Test
     fun `delete from other devices`() = runTest2 {
         val creds1 = createDevice()
         val creds2 = createDevice()
-        writeModule(creds1, "abc", body = "test")
-        readModule(creds1, "abc").bodyAsText() shouldBe "test"
+        writeModule(creds1, "abc", data = "test")
+        readModuleRaw(creds1, "abc").bodyAsText() shouldBe "test"
         deleteModule(creds2, "abc", creds1.deviceId).apply {
             status shouldBe HttpStatusCode.Unauthorized
             bodyAsText() shouldBe "Devices don't share the same account"
         }
-        readModule(creds1, "abc").bodyAsText() shouldBe "test"
+        readModuleRaw(creds1, "abc").bodyAsText() shouldBe "test"
     }
 }

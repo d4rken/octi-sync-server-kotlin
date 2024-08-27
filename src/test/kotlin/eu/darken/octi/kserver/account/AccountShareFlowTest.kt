@@ -1,6 +1,6 @@
 package eu.darken.octi.kserver.account
 
-import eu.darken.octi.kserver.*
+import eu.darken.octi.*
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
@@ -10,7 +10,7 @@ import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import java.util.*
 
-class AccountShareFlowTest : BaseServerTest() {
+class AccountShareFlowTest : TestRunner() {
 
     private val endpointAcc = "/v1/account"
     private val endpointShare = "$endpointAcc/share"

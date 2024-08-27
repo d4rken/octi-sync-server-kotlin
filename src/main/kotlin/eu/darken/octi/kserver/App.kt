@@ -1,8 +1,5 @@
 package eu.darken.octi.kserver
 
-import eu.darken.octi.kserver.account.AccountConfig
-import eu.darken.octi.kserver.account.AccountRepo
-import eu.darken.octi.kserver.account.share.ShareRepo
 import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.RateLimitConfig
 import eu.darken.octi.kserver.common.debug.logging.ConsoleLogger
@@ -10,20 +7,16 @@ import eu.darken.octi.kserver.common.debug.logging.Logging
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
-import eu.darken.octi.kserver.device.DeviceRepo
-import eu.darken.octi.kserver.module.ModuleRepo
 import java.nio.file.Path
+import java.time.Duration
 import javax.inject.Inject
 import kotlin.io.path.Path
+import kotlin.io.path.absolute
 
 class App @Inject constructor(
     private val config: Config,
     val appScope: AppScope,
     private val server: Server,
-    val accountRepo: AccountRepo,
-    val shareRepo: ShareRepo,
-    val deviceRepo: DeviceRepo,
-    val moduleRepo: ModuleRepo,
 ) {
 
     init {
@@ -50,12 +43,18 @@ class App @Inject constructor(
     }
 
     data class Config(
-        val isDebug: Boolean,
+        val isDebug: Boolean = false,
         val port: Int,
         val dataPath: Path,
         val rateLimit: RateLimitConfig? = RateLimitConfig(),
         val payloadLimit: Long? = 128 * 1024L,
-        val account: AccountConfig = AccountConfig(),
+        val accountGCInterval: Duration = Duration.ofMinutes(10),
+        val shareExpiration: Duration = Duration.ofMinutes(60),
+        val shareGCInterval: Duration = Duration.ofMinutes(10),
+        val deviceExpiration: Duration = Duration.ofDays(90),
+        val deviceGCInterval: Duration = Duration.ofMinutes(10),
+        val moduleExpiration: Duration = Duration.ofDays(90),
+        val moduleGCInterval: Duration = Duration.ofMinutes(10),
     )
 
     companion object {
@@ -71,7 +70,8 @@ class App @Inject constructor(
                     ?: 8080,
                 dataPath = args
                     .single { it.startsWith("--datapath") }
-                    .let { Path(it.substringAfter('=')) },
+                    .let { Path(it.substringAfter('=')) }
+                    .absolute(),
             )
 
             DaggerAppComponent.builder().config(config).build().application().apply {

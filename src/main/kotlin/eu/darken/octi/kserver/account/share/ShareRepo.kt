@@ -76,7 +76,7 @@ class ShareRepo @Inject constructor(
         }
 
         appScope.launch(Dispatchers.IO) {
-            val expirationTime = config.account.shareExpirationTime
+            val expirationTime = config.shareExpiration
 
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for expired shares..." }

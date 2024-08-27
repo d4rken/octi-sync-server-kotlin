@@ -1,6 +1,8 @@
-package eu.darken.octi.kserver
+package eu.darken.octi
 
-import eu.darken.octi.kserver.BaseServerTest.TestEnv
+import eu.darken.octi.TestRunner.TestEnvironment
+import eu.darken.octi.kserver.common.serialization.UUIDSerializer
+import io.kotest.matchers.shouldBe
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -51,7 +53,7 @@ fun HttpRequestBuilder.addCredentials(credentials: Credentials) {
     addAuth(credentials.auth)
 }
 
-suspend fun TestEnv.createDeviceRaw(
+suspend fun TestEnvironment.createDeviceRaw(
     deviceId: UUID = UUID.randomUUID(),
     shareCode: String? = null,
 ): HttpResponse = this.http.run {
@@ -70,7 +72,7 @@ suspend fun TestEnv.createDeviceRaw(
     }
 }
 
-suspend fun TestEnv.createDevice(
+suspend fun TestEnvironment.createDevice(
     deviceId: UUID = UUID.randomUUID(),
     shareCode: String? = null,
 ): Credentials {
@@ -78,7 +80,7 @@ suspend fun TestEnv.createDevice(
     return Credentials(deviceId, credentials)
 }
 
-suspend fun TestEnv.createDevice(
+suspend fun TestEnvironment.createDevice(
     credentials: Credentials,
 ): Credentials {
     val shareCode = createShareCode(credentials)
@@ -86,7 +88,7 @@ suspend fun TestEnv.createDevice(
     return createDevice(shareCode = shareCode)
 }
 
-suspend fun TestEnv.createShareCode(
+suspend fun TestEnvironment.createShareCode(
     credentials: Credentials
 ): String = http.run {
     val shareCode = post("/v1/account/share") {
@@ -97,6 +99,51 @@ suspend fun TestEnv.createShareCode(
     return shareCode
 }
 
+@Serializable
+data class TestDevices(
+    val devices: Set<Device>,
+) {
+    @Serializable
+    data class Device(
+        @Serializable(with = UUIDSerializer::class) val id: UUID,
+        val version: String = "Ktor client",
+    )
+}
+
+suspend fun TestEnvironment.getDevicesRaw(
+    credentials: Credentials
+): HttpResponse = this.http.run {
+    http.get("/v1/devices") {
+        addCredentials(credentials)
+    }
+}
+
+suspend fun TestEnvironment.getDevices(
+    credentials: Credentials
+): TestDevices = this.http.run {
+    val response = getDevicesRaw(credentials)
+    Json.decodeFromString<TestDevices>(response.bodyAsText())
+}
+
+suspend fun TestEnvironment.deleteAccount(
+    credentials: Credentials,
+) = this.http.run {
+    delete("/v1/account") {
+        addCredentials(credentials)
+    }
+}
+
+suspend fun TestEnvironment.deleteDevice(
+    credentials: Credentials,
+    target: UUID = credentials.deviceId,
+) = this.http.run {
+    delete("/v1/devices/$target") {
+        addCredentials(credentials)
+    }.apply {
+        status shouldBe HttpStatusCode.OK
+    }
+}
+
 fun HttpRequestBuilder.targetModule(moduleId: String, device: UUID?) {
     url {
         takeFrom("/v1/modules/$moduleId")
@@ -104,7 +151,7 @@ fun HttpRequestBuilder.targetModule(moduleId: String, device: UUID?) {
     }
 }
 
-suspend fun TestEnv.readModule(
+suspend fun TestEnvironment.readModuleRaw(
     creds: Credentials,
     moduleId: String,
     deviceId: UUID? = creds.deviceId,
@@ -113,19 +160,28 @@ suspend fun TestEnv.readModule(
     addCredentials(creds)
 }
 
-suspend fun TestEnv.writeModule(
+suspend fun TestEnvironment.readModule(
     creds: Credentials,
     moduleId: String,
     deviceId: UUID? = creds.deviceId,
-    body: String,
+) = http.get {
+    targetModule(moduleId, deviceId)
+    addCredentials(creds)
+}.bodyAsText()
+
+suspend fun TestEnvironment.writeModule(
+    creds: Credentials,
+    moduleId: String,
+    deviceId: UUID? = creds.deviceId,
+    data: String,
 ) = http.post {
     targetModule(moduleId, deviceId)
     addCredentials(creds)
     contentType(ContentType.Application.OctetStream)
-    setBody(body)
+    setBody(data)
 }
 
-suspend fun TestEnv.deleteModule(
+suspend fun TestEnvironment.deleteModule(
     creds: Credentials,
     moduleId: String,
     deviceId: UUID? = creds.deviceId,

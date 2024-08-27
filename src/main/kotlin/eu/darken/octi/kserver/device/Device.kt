@@ -39,7 +39,9 @@ data class Device(
         val version: String?,
         @Contextual val addedAt: Instant = Instant.now(),
         @Contextual val lastSeen: Instant = Instant.now(),
-    )
+    ) {
+        override fun toString(): String = "Device.Data($addedAt, $lastSeen, $id, ${password.take(16)})"
+    }
 }
 
 typealias DeviceId = UUID

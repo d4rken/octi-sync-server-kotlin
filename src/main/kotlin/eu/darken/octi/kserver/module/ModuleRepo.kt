@@ -1,45 +1,64 @@
 package eu.darken.octi.kserver.module
 
+import eu.darken.octi.kserver.App
 import eu.darken.octi.kserver.common.AppScope
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.ERROR
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
+import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.device.Device
 import eu.darken.octi.kserver.device.DeviceRepo
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class ModuleRepo @Inject constructor(
+    appScope: AppScope,
+    private val config: App.Config,
     private val serializer: Json,
-    private val appScope: AppScope,
     private val deviceRepo: DeviceRepo,
 ) {
 
     init {
-        appScope.launch {
-            // TODO increase
-            delay(10.seconds)
+        appScope.launch(Dispatchers.IO) {
+            delay(config.moduleGCInterval.toMillis() / 10)
             while (currentCoroutineContext().isActive) {
-                deviceRepo.allDevices().forEach { device ->
+                log(TAG) { "Checking for stale modules..." }
+                deviceRepo.allDevices().forEach { device: Device ->
                     device.sync.withLock {
+                        try {
+                            val modulePath = device.path.resolve(MODULES_DIR)
+                            if (!modulePath.exists()) return@withLock
 
+                            val now = Instant.now()
+                            val staleModules = modulePath.listDirectoryEntries().filter { path ->
+                                val metaFile = path.resolve(META_FILENAME)
+                                val lastAccessed = metaFile.getLastModifiedTime().toInstant()
+                                log(TAG) { "DUR ${Duration.between(lastAccessed, now)}" }
+                                Duration.between(lastAccessed, now) > config.moduleExpiration
+                            }
+                            if (staleModules.isNotEmpty()) {
+                                log(TAG) { "Deleting ${staleModules.size} stale modules for ${device.id}" }
+                                staleModules.forEach { it.deleteRecursively() }
+                            }
+                        } catch (e: IOException) {
+                            log(TAG, ERROR) { "Module expiration check failed for $device\n${e.asLog()}" }
+                        }
                     }
                 }
-                // TODO increase
-                delay(10.seconds)
+                delay(config.moduleGCInterval.toMillis())
             }
         }
     }

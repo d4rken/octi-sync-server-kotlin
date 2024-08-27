@@ -1,5 +1,6 @@
 package eu.darken.octi.kserver.device
 
+import eu.darken.octi.kserver.App
 import eu.darken.octi.kserver.account.Account
 import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.account.AccountRepo
@@ -21,12 +22,12 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class DeviceRepo @Inject constructor(
-    private val appScope: AppScope,
+    appScope: AppScope,
+    private val config: App.Config,
     private val serializer: Json,
     private val accountsRepo: AccountRepo,
 ) {
@@ -66,19 +67,17 @@ class DeviceRepo @Inject constructor(
                 }
             log(TAG, INFO) { "${devices.size} devices loaded into memory" }
         }
-        appScope.launch {
-            // TODO increase
-            delay(10.seconds)
+        appScope.launch(Dispatchers.IO) {
+            delay(config.deviceGCInterval.toMillis() / 10)
             while (currentCoroutineContext().isActive) {
                 val now = Instant.now()
+                log(TAG) { "Checking for stale devices..." }
                 devices.forEach { (id, device) ->
-                    // TODO increase
-                    if (Duration.between(device.lastSeen, now) < Duration.ofSeconds(120)) return@forEach
-                    log(TAG, WARN) { "Deleting stale device due to not being seen" }
+                    if (Duration.between(device.lastSeen, now) < config.deviceExpiration) return@forEach
+                    log(TAG, WARN) { "Deleting stale device $id" }
                     deleteDevice(id)
                 }
-                // TODO increase
-                delay(10.seconds)
+                delay(config.deviceGCInterval.toMillis())
             }
         }
     }

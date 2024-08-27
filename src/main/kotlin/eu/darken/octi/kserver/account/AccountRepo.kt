@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalPathApi::class)
 @Singleton
@@ -76,21 +75,22 @@ class AccountRepo @Inject constructor(
         }
 
         appScope.launch(Dispatchers.IO) {
-            delay(10.seconds)
+            delay((config.accountGCInterval.toMillis() / 10))
             while (currentCoroutineContext().isActive) {
                 val now = Instant.now()
                 log(TAG) { "Checking for orphaned accounts..." }
                 val orphaned = accounts.filterValues {
-                    // We don't lock the mutex, so prevent accounts that are currently in creation
-                    if (Duration.between(it.createdAt, now) < Duration.ofMinutes(60)) return@filterValues false
+                    // We don't lock the mutex, skip accounts that are currently in creation
+                    if (Duration.between(it.createdAt, now) < config.accountGCInterval) {
+                        return@filterValues false
+                    }
                     it.path.resolve(DeviceRepo.DEVICES_DIR).listDirectoryEntries().isEmpty()
                 }
                 if (orphaned.isNotEmpty()) {
                     log(TAG, INFO) { "Deleting ${orphaned.size} accounts without devices" }
                     deleteAccounts(orphaned.map { it.value.id })
                 }
-                // TODO increase
-                delay(10.seconds)
+                delay(config.accountGCInterval.toMillis())
             }
         }
     }

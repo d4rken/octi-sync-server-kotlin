@@ -1,5 +1,7 @@
-package eu.darken.octi.kserver
+package eu.darken.octi
 
+import eu.darken.octi.kserver.App
+import eu.darken.octi.kserver.DaggerAppComponent
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.client.*
@@ -9,22 +11,23 @@ import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.*
 import kotlin.concurrent.thread
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.deleteRecursively
 
 @OptIn(ExperimentalPathApi::class)
-abstract class BaseServerTest {
+abstract class TestRunner {
 
     val baseConfig = App.Config(
-        dataPath = Path("./build/tmp/testdatapath"),
+        dataPath = Path("./build/tmp/testdatapath/${UUID.randomUUID()}"),
         port = 8080,
         isDebug = true,
         rateLimit = null,
     )
 
-    data class TestEnv(
+    data class TestEnvironment(
         val config: App.Config,
         val app: App,
         val http: HttpClient,
@@ -33,7 +36,7 @@ abstract class BaseServerTest {
     fun runTest2(
         appConfig: App.Config = baseConfig,
         keepData: Boolean = false,
-        before: (App.Config) -> TestEnv = {
+        before: (App.Config) -> TestEnvironment = {
             Files.createDirectories(it.dataPath)
 
             val app = DaggerAppComponent.builder().config(appConfig).build().application()
@@ -51,9 +54,9 @@ abstract class BaseServerTest {
                 }
             }
 
-            TestEnv(appConfig, app, client)
+            TestEnvironment(appConfig, app, client)
         },
-        after: TestEnv.() -> Unit = {
+        after: TestEnvironment.() -> Unit = {
             http.close()
             app.shutdown()
             if (!keepData) {
@@ -61,7 +64,7 @@ abstract class BaseServerTest {
                 appConfig.dataPath.deleteRecursively()
             }
         },
-        test: suspend TestEnv.() -> Unit
+        test: suspend TestEnvironment.() -> Unit
     ) {
         val env = before(appConfig)
         log(VERBOSE) { "Running test with environment $env" }
@@ -73,11 +76,11 @@ abstract class BaseServerTest {
         }
     }
 
-    fun TestEnv.getAccountPath(credentials: Credentials): Path {
+    fun TestEnvironment.getAccountPath(credentials: Credentials): Path {
         return config.dataPath.resolve("accounts").resolve(credentials.account)
     }
 
-    fun TestEnv.getSharesPath(credentials: Credentials): Path {
+    fun TestEnvironment.getSharesPath(credentials: Credentials): Path {
         return getAccountPath(credentials).resolve("shares")
     }
 }

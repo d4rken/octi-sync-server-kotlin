@@ -29,7 +29,9 @@ data class Share(
         @Contextual val createdAt: Instant = Instant.now(),
         @Contextual val id: ShareId = UUID.randomUUID(),
         val code: ShareCode = generateRandomKey(),
-    )
+    ) {
+        override fun toString(): String = "Share.Data($createdAt, $id, ${code.take(16)})"
+    }
 }
 
 
