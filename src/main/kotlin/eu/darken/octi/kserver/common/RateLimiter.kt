@@ -1,10 +1,11 @@
 package eu.darken.octi.kserver.common
 
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.response.*
-import io.ktor.utils.io.*
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -14,10 +15,10 @@ val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
 data class RateLimitConfig(
     val limit: Int = 20,
     val resetTime: Duration = Duration.ofSeconds(20),
-    val maxBodySize: Long = 128 * 1024L,
 )
 
-fun Application.installRateLimit(config: RateLimitConfig = RateLimitConfig()) {
+fun Application.installRateLimit(config: RateLimitConfig) {
+    log(INFO) { "Rate limits are set to $config" }
     intercept(ApplicationCallPipeline.Plugins) {
         val clientIp = call.request.origin.remoteHost
         val currentTime = Instant.now()
@@ -34,12 +35,6 @@ fun Application.installRateLimit(config: RateLimitConfig = RateLimitConfig()) {
             return@intercept
         } else {
             requests[clientIp] = Pair(requestCount + 1, resetTime)
-        }
-    }
-    intercept(ApplicationCallPipeline.Plugins) {
-        if (call.request.receiveChannel().availableForRead > config.maxBodySize) {
-            call.respond(HttpStatusCode.PayloadTooLarge, "Request body is too large")
-            finish()
         }
     }
 }

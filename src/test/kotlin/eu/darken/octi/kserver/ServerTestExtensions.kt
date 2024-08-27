@@ -1,6 +1,6 @@
 package eu.darken.octi.kserver
 
-import io.ktor.client.*
+import eu.darken.octi.kserver.BaseServerTest.TestEnv
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -51,28 +51,34 @@ fun HttpRequestBuilder.addCredentials(credentials: Credentials) {
     addAuth(credentials.auth)
 }
 
-suspend fun HttpClient.createDevice(
+suspend fun TestEnv.createDeviceRaw(
     deviceId: UUID = UUID.randomUUID(),
     shareCode: String? = null,
-): Credentials {
-    val credentials = if (shareCode != null) {
+): HttpResponse = this.http.run {
+    if (shareCode != null) {
         post {
             url {
                 takeFrom("/v1/account")
                 parameters.append("share", shareCode)
             }
             addDeviceId(deviceId)
-        }.asAuth()
+        }
     } else {
         post("/v1/account") {
             addDeviceId(deviceId)
-        }.asAuth()
+        }
     }
+}
 
+suspend fun TestEnv.createDevice(
+    deviceId: UUID = UUID.randomUUID(),
+    shareCode: String? = null,
+): Credentials {
+    val credentials = createDeviceRaw(deviceId, shareCode).asAuth()
     return Credentials(deviceId, credentials)
 }
 
-suspend fun HttpClient.createDevice(
+suspend fun TestEnv.createDevice(
     credentials: Credentials,
 ): Credentials {
     val shareCode = createShareCode(credentials)
@@ -80,13 +86,50 @@ suspend fun HttpClient.createDevice(
     return createDevice(shareCode = shareCode)
 }
 
-suspend fun HttpClient.createShareCode(
+suspend fun TestEnv.createShareCode(
     credentials: Credentials
-): String {
+): String = http.run {
     val shareCode = post("/v1/account/share") {
         addDeviceId(credentials.deviceId)
         addAuth(credentials.auth)
     }.asMap()["code"]!!
 
     return shareCode
+}
+
+fun HttpRequestBuilder.targetModule(moduleId: String, device: UUID?) {
+    url {
+        takeFrom("/v1/modules/$moduleId")
+        if (device != null) parameters.append("device-id", device.toString())
+    }
+}
+
+suspend fun TestEnv.readModule(
+    creds: Credentials,
+    moduleId: String,
+    deviceId: UUID? = creds.deviceId,
+) = http.get {
+    targetModule(moduleId, deviceId)
+    addCredentials(creds)
+}
+
+suspend fun TestEnv.writeModule(
+    creds: Credentials,
+    moduleId: String,
+    deviceId: UUID? = creds.deviceId,
+    body: String,
+) = http.post {
+    targetModule(moduleId, deviceId)
+    addCredentials(creds)
+    contentType(ContentType.Application.OctetStream)
+    setBody(body)
+}
+
+suspend fun TestEnv.deleteModule(
+    creds: Credentials,
+    moduleId: String,
+    deviceId: UUID? = creds.deviceId,
+) = http.delete {
+    targetModule(moduleId, deviceId)
+    addCredentials(creds)
 }

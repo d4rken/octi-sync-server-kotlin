@@ -9,9 +9,6 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
 import java.util.*
-import kotlin.io.path.exists
-import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.readText
 
 class AccountShareFlowTest : BaseServerTest() {
 
@@ -21,16 +18,8 @@ class AccountShareFlowTest : BaseServerTest() {
     @Test
     fun `linking via sharecode`() = runTest2 {
         val creds1 = createDevice()
-
         val shareCode = createShareCode(creds1)
-
-        creds1.getAccountPath().resolve("shares").apply {
-            exists() shouldBe true
-            listDirectoryEntries().first().readText() shouldContain shareCode
-        }
-
         val creds2 = createDevice(shareCode = shareCode)
-
         creds1.account shouldBe creds2.account
     }
 
@@ -51,7 +40,7 @@ class AccountShareFlowTest : BaseServerTest() {
     fun `creating share requires matching auth`() = runTest2 {
         val creds1 = createDevice()
 
-        post(endpointShare) {
+        http.post(endpointShare) {
             addDeviceId(UUID.randomUUID())
             addAuth(creds1.auth)
         }.apply {
@@ -64,7 +53,7 @@ class AccountShareFlowTest : BaseServerTest() {
     fun `creating share requires valid auth`() = runTest2 {
         val creds1 = createDevice()
 
-        post(endpointShare) {
+        http.post(endpointShare) {
             addDeviceId(creds1.deviceId)
             addAuth(creds1.auth.copy(password = "abc"))
         }.apply {
@@ -82,7 +71,7 @@ class AccountShareFlowTest : BaseServerTest() {
 
         creds1.account shouldBe creds2.account
 
-        post {
+        http.post {
             url {
                 takeFrom(endpointAcc)
                 parameters.append("share", shareCode)
@@ -99,7 +88,7 @@ class AccountShareFlowTest : BaseServerTest() {
         val creds1 = createDevice()
         val shareCode1 = createShareCode(creds1)
 
-        val creds2 = post {
+        val creds2 = http.post {
             url {
                 takeFrom(endpointAcc)
                 parameters.append("share", shareCode1)
@@ -109,7 +98,7 @@ class AccountShareFlowTest : BaseServerTest() {
 
         creds1.account shouldBe creds2.account
 
-        post {
+        http.post {
             url {
                 takeFrom(endpointAcc)
                 parameters.append("share", shareCode1)

@@ -29,7 +29,7 @@ class DeviceFlowTest : BaseServerTest() {
     fun `get devices`() = runTest2 {
         val creds1 = createDevice()
         val creds2 = createDevice(creds1)
-        get(endPoint) {
+        http.get(endPoint) {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
@@ -40,7 +40,7 @@ class DeviceFlowTest : BaseServerTest() {
     @Test
     fun `get devices - requires valid auth`() = runTest2 {
         val creds1 = createDevice()
-        get(endPoint) {
+        http.get(endPoint) {
             addDeviceId(creds1.deviceId)
         }.apply {
             status shouldBe HttpStatusCode.BadRequest
@@ -51,13 +51,13 @@ class DeviceFlowTest : BaseServerTest() {
     fun `delete device`() = runTest2 {
         val creds1 = createDevice()
         val creds2 = createDevice(creds1)
-        delete("$endPoint/${creds2.deviceId}") {
+        http.delete("$endPoint/${creds2.deviceId}") {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
         }
 
-        get(endPoint) {
+        http.get(endPoint) {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
@@ -77,7 +77,7 @@ class DeviceFlowTest : BaseServerTest() {
     @Test
     fun `delete devices - requires valid auth`() = runTest2 {
         val creds1 = createDevice()
-        delete("$endPoint/${UUID.randomUUID()}") {
+        http.delete("$endPoint/${UUID.randomUUID()}") {
             addDeviceId(creds1.deviceId)
         }.apply {
             status shouldBe HttpStatusCode.BadRequest
@@ -88,13 +88,13 @@ class DeviceFlowTest : BaseServerTest() {
     fun `deleting ourselves`() = runTest2 {
         val creds1 = createDevice()
 
-        delete("$endPoint/${creds1.deviceId}") {
+        http.delete("$endPoint/${creds1.deviceId}") {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
         }
 
-        get(endPoint) {
+        http.get(endPoint) {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.NotFound

@@ -1,5 +1,6 @@
 package eu.darken.octi.kserver.account.share
 
+import eu.darken.octi.kserver.App
 import eu.darken.octi.kserver.account.Account
 import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.account.AccountRepo
@@ -24,14 +25,16 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 
 @Singleton
 class ShareRepo @Inject constructor(
+    appScope: AppScope,
     private val serializer: Json,
     private val accountsRepo: AccountRepo,
-    private val appScope: AppScope,
+    private val config: App.Config,
 ) {
 
     private val shares = ConcurrentHashMap<ShareId, Share>()
@@ -73,20 +76,19 @@ class ShareRepo @Inject constructor(
         }
 
         appScope.launch(Dispatchers.IO) {
-            delay(20.seconds)
+            val expirationTime = config.account.shareExpirationTime
+
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for expired shares..." }
                 val now = Instant.now()
                 val expiredShares = shares.filterValues { share ->
-                    // TODO increase
-                    Duration.between(share.createdAt, now) > Duration.ofMinutes(1)
+                    Duration.between(share.createdAt, now) > expirationTime
                 }
                 if (expiredShares.isNotEmpty()) {
                     log(TAG, INFO) { "Deleting ${expiredShares.size} expired shares" }
                     removeShares(expiredShares.map { it.value.id })
                 }
-                // TODO increase
-                delay(10.seconds)
+                delay(expirationTime.toMillis() / 2)
             }
         }
 
@@ -99,8 +101,7 @@ class ShareRepo @Inject constructor(
                     log(TAG, INFO) { "Removing ${staleShares.size} stale shares" }
                     removeShares(staleShares.map { it.id })
                 }
-                // TODO increase
-                delay(10.seconds)
+                delay(10.minutes)
             }
         }
     }

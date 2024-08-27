@@ -3,9 +3,11 @@ package eu.darken.octi.kserver
 import eu.darken.octi.kserver.account.AccountRoute
 import eu.darken.octi.kserver.account.share.ShareRoute
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.WARN
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.common.installCallLogging
+import eu.darken.octi.kserver.common.installPayloadLimit
 import eu.darken.octi.kserver.common.installRateLimit
 import eu.darken.octi.kserver.device.DeviceRoute
 import eu.darken.octi.kserver.module.ModuleRoute
@@ -44,7 +46,15 @@ class Server @Inject constructor(
                     serializersModule = serializers
                 })
             }
-            if (config.useRateLimit) installRateLimit()
+
+            config.rateLimit
+                ?.let { installRateLimit(it) }
+                ?: log(TAG, WARN) { "rateLimit is not configured" }
+
+            config.payloadLimit
+                ?.let { installPayloadLimit(it) }
+                ?: log(TAG, WARN) { "payloadLimit is not configured" }
+
             routing {
                 get("/v1") {
                     call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
@@ -83,6 +93,6 @@ class Server @Inject constructor(
     fun isRunning(): Boolean = isRunning
 
     companion object {
-        private val TAG = logTag("Router")
+        private val TAG = logTag("Server")
     }
 }

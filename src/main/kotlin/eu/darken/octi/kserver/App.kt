@@ -1,8 +1,10 @@
 package eu.darken.octi.kserver
 
+import eu.darken.octi.kserver.account.AccountConfig
 import eu.darken.octi.kserver.account.AccountRepo
 import eu.darken.octi.kserver.account.share.ShareRepo
 import eu.darken.octi.kserver.common.AppScope
+import eu.darken.octi.kserver.common.RateLimitConfig
 import eu.darken.octi.kserver.common.debug.logging.ConsoleLogger
 import eu.darken.octi.kserver.common.debug.logging.Logging
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
@@ -51,7 +53,9 @@ class App @Inject constructor(
         val isDebug: Boolean,
         val port: Int,
         val dataPath: Path,
-        val useRateLimit: Boolean = true,
+        val rateLimit: RateLimitConfig? = RateLimitConfig(),
+        val payloadLimit: Long? = 128 * 1024L,
+        val account: AccountConfig = AccountConfig(),
     )
 
     companion object {

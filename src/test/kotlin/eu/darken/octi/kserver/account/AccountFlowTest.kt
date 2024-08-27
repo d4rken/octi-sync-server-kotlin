@@ -20,13 +20,13 @@ class AccountFlowTest : BaseServerTest() {
     @Test
     fun `creating a new account`() = runTest2 {
         val deviceId = UUID.randomUUID()
-        val auth = post(endpoint) {
+        val auth = http.post(endpoint) {
             addDeviceId(deviceId)
         }.apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldMatch """\{\s*"account":\s*"[0-9a-fA-F-]{36}",\s*"password":\s*"[0-9a-fA-F]{128}"\s*\}""".toRegex()
         }.asAuth()
-        Credentials(deviceId, auth).getAccountPath().apply {
+        getAccountPath(Credentials(deviceId, auth)).apply {
             exists() shouldBe true
             resolve("account.json").apply {
                 exists() shouldBe true
@@ -37,12 +37,12 @@ class AccountFlowTest : BaseServerTest() {
 
     @Test
     fun `create account requires device ID header`() = runTest2 {
-        post(endpoint).apply {
+        http.post(endpoint).apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "X-Device-ID header is missing"
         }
 
-        post(endpoint) {
+        http.post(endpoint) {
             headers {
                 append("X-Device-ID", "something")
             }
@@ -55,10 +55,10 @@ class AccountFlowTest : BaseServerTest() {
     @Test
     fun `no double creation`() = runTest2 {
         val deviceId = UUID.randomUUID()
-        post(endpoint) {
+        http.post(endpoint) {
             addDeviceId(deviceId)
         }
-        post(endpoint) {
+        http.post(endpoint) {
             addDeviceId(deviceId)
         }.apply {
             status shouldBe HttpStatusCode.BadRequest
@@ -69,18 +69,18 @@ class AccountFlowTest : BaseServerTest() {
     @Test
     fun `deleting an account`() = runTest2 {
         val creds1 = createDevice()
-        creds1.getAccountPath().apply {
+        getAccountPath(creds1).apply {
             exists() shouldBe true
             resolve("account.json").exists() shouldBe true
         }
-        delete(endpoint) {
+        http.delete(endpoint) {
             addCredentials(creds1)
         }.apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldBe ""
         }
 
-        creds1.getAccountPath().apply {
+        getAccountPath(creds1).apply {
             exists() shouldBe false
         }
 

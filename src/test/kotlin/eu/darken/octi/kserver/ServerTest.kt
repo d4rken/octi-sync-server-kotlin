@@ -11,7 +11,7 @@ class ServerTest : BaseServerTest() {
 
     @Test
     fun `base route test`() = runTest2 {
-        client.get("/v1").apply {
+        http.get("/v1").apply {
             status shouldBe HttpStatusCode.OK
             bodyAsText() shouldStartWith "ello "
         }

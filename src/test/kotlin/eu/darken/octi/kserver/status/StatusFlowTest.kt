@@ -10,7 +10,7 @@ class StatusFlowTest : BaseServerTest() {
 
     @Test
     fun `get status`() = runTest2 {
-        get("/v1/status") {
+        http.get("/v1/status") {
 
         }.apply {
             status shouldBe HttpStatusCode.OK
