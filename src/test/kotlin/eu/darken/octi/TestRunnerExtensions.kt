@@ -146,7 +146,7 @@ suspend fun TestEnvironment.deleteDevice(
 
 fun HttpRequestBuilder.targetModule(moduleId: String, device: UUID?) {
     url {
-        takeFrom("/v1/modules/$moduleId")
+        takeFrom("/v1/module/$moduleId")
         if (device != null) parameters.append("device-id", device.toString())
     }
 }

@@ -11,6 +11,7 @@ import eu.darken.octi.kserver.device.Device
 import eu.darken.octi.kserver.device.DeviceId
 import eu.darken.octi.kserver.device.DeviceRepo
 import io.ktor.http.*
+import io.ktor.server.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -51,7 +52,7 @@ class ModuleRoute @Inject constructor(
     }
 
     fun setup(rootRoute: RootRouting) {
-        rootRoute.route("/v1/modules") {
+        rootRoute.route("/v1/module") {
             get("/{moduleId}") { catchError { readModule() } }
             post("/{moduleId}") { catchError { writeModule() } }
             delete("/{moduleId}") { catchError { deleteModule() } }
@@ -91,7 +92,7 @@ class ModuleRoute @Inject constructor(
         if (read.modifiedAt == null) {
             call.respond(HttpStatusCode.NoContent)
         } else {
-            call.response.header("X-Modified-At", read.modifiedAt)
+            call.response.header("X-Modified-At", read.modifiedAt.toHttpDateString())
             call.respondBytes(
                 read.payload,
                 contentType = ContentType.Application.OctetStream

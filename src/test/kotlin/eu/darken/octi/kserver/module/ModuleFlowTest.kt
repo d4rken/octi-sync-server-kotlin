@@ -2,15 +2,18 @@ package eu.darken.octi.kserver.module
 
 import eu.darken.octi.*
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Test
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 class ModuleFlowTest : TestRunner() {
 
-    private val endpointModules = "/v1/modules"
+    private val endpointModules = "/v1/module"
 
     @Test
     fun `module id format needs to match`() = runTest2 {
@@ -92,6 +95,9 @@ class ModuleFlowTest : TestRunner() {
         }
         readModuleRaw(creds, "abc").apply {
             status shouldBe HttpStatusCode.OK
+            headers["X-Modified-At"]!!.let {
+                ZonedDateTime.parse(it, DateTimeFormatter.RFC_1123_DATE_TIME)
+            } shouldNotBe null
             bodyAsText() shouldBe testData
         }
     }
@@ -133,7 +139,6 @@ class ModuleFlowTest : TestRunner() {
         writeModule(creds2, "abc", creds1.deviceId, "test")
     }
 
-
     @Test
     fun `set module - overwrite data`() = runTest2 {
         val creds = createDevice()
@@ -141,6 +146,15 @@ class ModuleFlowTest : TestRunner() {
         readModuleRaw(creds, "abc").bodyAsText() shouldBe "test1"
         writeModule(creds, "abc", data = "test2")
         readModuleRaw(creds, "abc").bodyAsText() shouldBe "test2"
+    }
+
+    @Test
+    fun `set module - can overwrite other devices data`() = runTest2 {
+        val creds1 = createDevice()
+        val creds2 = createDevice(creds1)
+        writeModule(creds1, "abc", data = "test1")
+        writeModule(creds2, "abc", creds1.deviceId, data = "test2")
+        readModule(creds1, "abc") shouldBe "test2"
     }
 
     @Test
