@@ -72,6 +72,11 @@ class App @Inject constructor(
                     .single { it.startsWith("--datapath") }
                     .let { Path(it.substringAfter('=')) }
                     .absolute(),
+                rateLimit = if (args.any { it.startsWith("--disable-rate-limits") }) {
+                    null
+                } else {
+                    RateLimitConfig()
+                },
             )
 
             DaggerAppComponent.builder().config(config).build().application().apply {
