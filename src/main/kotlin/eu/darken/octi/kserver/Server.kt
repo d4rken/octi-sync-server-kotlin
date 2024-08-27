@@ -12,17 +12,14 @@ import eu.darken.octi.kserver.common.installRateLimit
 import eu.darken.octi.kserver.device.DeviceRoute
 import eu.darken.octi.kserver.module.ModuleRoute
 import eu.darken.octi.kserver.status.StatusRoute
-import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
-import java.util.*
 import javax.inject.Inject
 
 class Server @Inject constructor(
@@ -56,9 +53,6 @@ class Server @Inject constructor(
                 ?: log(TAG, WARN) { "payloadLimit is not configured" }
 
             routing {
-                get("/v1") {
-                    call.respondText("ello  ${UUID.randomUUID()}", ContentType.Text.Html)
-                }
                 statusRoute.setup(this)
                 accountRoute.setup(this)
                 shareRoute.setup(this)
