@@ -1,0 +1,36 @@
+name: Code tests & eval
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-modules:
+    name: Build apps
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [ Foss,Gplay ]
+        variant: [ Debug ]
+        module: [ app ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup project and build environment
+        uses: ./.github/actions/common-setup
+      - name: Build modules
+        run: ./gradlew build
+
+  run-tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup project and build environment
+        uses: ./.github/actions/common-setup
+      - name: Check code and run tests
+        run: ./gradlew check

@@ -1,0 +1,60 @@
+name: Tagged releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-github:
+    name: Create GitHub release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    environment: foss-production
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup project and build environment
+        uses: ./.github/actions/common-setup
+
+      - name: Get the version
+        id: tagger
+        uses: jimschubert/query-tag-action@v2
+        with:
+          skip-unshallow: 'true'
+          abbrev: false
+          commit-ish: HEAD
+
+      - name: Package application
+        run: ./gradlew installDist
+
+      - name: Create ZIP file from the directory
+        run: zip -r octi-sync-server.zip ./build/install/octi-sync-server-kotlin
+
+      - name: Create pre-release
+        if: contains(steps.tagger.outputs.tag, '-beta')
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: ${{ steps.tagger.outputs.tag }}
+          name: ${{ steps.tagger.outputs.tag }}
+          generate_release_notes: true
+          files: octi-sync-server.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        if: "!contains(steps.tagger.outputs.tag, '-beta')"
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: false
+          tag_name: ${{ steps.tagger.outputs.tag }}
+          name: ${{ steps.tagger.outputs.tag }}
+          generate_release_notes: true
+          files: octi-sync-server.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
