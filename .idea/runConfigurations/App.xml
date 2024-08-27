@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="App" type="JetRunConfigurationType" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="eu.darken.octi.kserver.App" />
+    <module name="octi-sync-server-kotlin.main" />
+    <option name="PROGRAM_PARAMETERS" value="--debug --datapath=./zdatapath" />
+    <shortenClasspath name="NONE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
