@@ -22,7 +22,7 @@ abstract class TestRunner {
 
     val baseConfig = App.Config(
         dataPath = Path("./build/tmp/testdatapath/${UUID.randomUUID()}"),
-        port = 8080,
+        port = 16023,
         isDebug = true,
         rateLimit = null,
     )
