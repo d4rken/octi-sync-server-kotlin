@@ -48,7 +48,7 @@ abstract class TestRunner {
                 defaultRequest {
                     url {
                         protocol = URLProtocol.HTTP
-                        host = "localhost"
+                        host = "127.0.0.1"
                         port = appConfig.port
                     }
                 }
