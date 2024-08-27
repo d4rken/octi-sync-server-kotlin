@@ -1,5 +1,6 @@
-package eu.darken.octi.kserver.account
+package eu.darken.octi.kserver.status
 
+import eu.darken.octi.kserver.BaseServerTest
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.*
 import io.ktor.http.*

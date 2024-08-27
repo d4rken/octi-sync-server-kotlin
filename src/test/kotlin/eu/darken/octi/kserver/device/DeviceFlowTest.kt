@@ -1,5 +1,9 @@
-package eu.darken.octi.kserver.account
+package eu.darken.octi.kserver.device
 
+import eu.darken.octi.kserver.BaseServerTest
+import eu.darken.octi.kserver.addCredentials
+import eu.darken.octi.kserver.addDeviceId
+import eu.darken.octi.kserver.createDevice
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.*

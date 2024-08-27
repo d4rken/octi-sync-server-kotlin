@@ -52,7 +52,7 @@ class ModuleRepo @Inject constructor(
     }
 
     suspend fun read(caller: Device, target: Device, moduleId: ModuleId): Module.Read {
-        log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) reading..." }
+        log(TAG, VERBOSE) { "read(${caller.id}, ${target.id}, $moduleId) reading..." }
         val modulePath = target.getModulePath(moduleId)
 
         return target.sync.withLock {
@@ -65,7 +65,7 @@ class ModuleRepo @Inject constructor(
                 )
             }
         }.also {
-            log(TAG, VERBOSE) { "write(${caller.id}, ${target.id}, $moduleId) ${it.size}B read" }
+            log(TAG, VERBOSE) { "read(${caller.id}, ${target.id}, $moduleId) ${it.size}B read" }
         }
     }
 

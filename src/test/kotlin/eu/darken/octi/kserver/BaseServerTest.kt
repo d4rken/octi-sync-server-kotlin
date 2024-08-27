@@ -1,19 +1,12 @@
-package eu.darken.octi.kserver.account
+package eu.darken.octi.kserver
 
-import eu.darken.octi.kserver.App
-import eu.darken.octi.kserver.DaggerAppComponent
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.concurrent.thread
@@ -25,7 +18,7 @@ import kotlin.io.path.deleteRecursively
 abstract class BaseServerTest {
 
     val dataPath = Path("./build/tmp/testdatapath")
-    private lateinit var client: HttpClient
+    lateinit var client: HttpClient
 
     private lateinit var app: App
 
@@ -66,14 +59,6 @@ abstract class BaseServerTest {
 
     fun runTest2(test: suspend HttpClient.() -> Unit) = runTest {
         test(client)
-    }
-
-    @Test
-    fun `base route test`() = runTest2 {
-        client.get("/v1").apply {
-            status shouldBe HttpStatusCode.OK
-            bodyAsText() shouldStartWith "ello "
-        }
     }
 
     fun Credentials.getAccountPath(): Path {

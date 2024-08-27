@@ -26,9 +26,9 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalPathApi::class)
 @Singleton
 class DeviceRepo @Inject constructor(
+    private val appScope: AppScope,
     private val serializer: Json,
     private val accountsRepo: AccountRepo,
-    private val appScope: AppScope,
 ) {
 
     private val devices = ConcurrentHashMap<DeviceId, Device>()

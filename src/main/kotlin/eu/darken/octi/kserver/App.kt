@@ -1,11 +1,15 @@
 package eu.darken.octi.kserver
 
+import eu.darken.octi.kserver.account.AccountRepo
+import eu.darken.octi.kserver.account.share.ShareRepo
 import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.debug.logging.ConsoleLogger
 import eu.darken.octi.kserver.common.debug.logging.Logging
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
+import eu.darken.octi.kserver.device.DeviceRepo
+import eu.darken.octi.kserver.module.ModuleRepo
 import java.nio.file.Path
 import javax.inject.Inject
 import kotlin.io.path.Path
@@ -14,6 +18,10 @@ class App @Inject constructor(
     private val config: Config,
     val appScope: AppScope,
     private val server: Server,
+    val accountRepo: AccountRepo,
+    val shareRepo: ShareRepo,
+    val deviceRepo: DeviceRepo,
+    val moduleRepo: ModuleRepo,
 ) {
 
     init {

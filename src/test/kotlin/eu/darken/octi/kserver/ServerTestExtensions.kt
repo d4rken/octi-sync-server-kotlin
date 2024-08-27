@@ -1,4 +1,4 @@
-package eu.darken.octi.kserver.account
+package eu.darken.octi.kserver
 
 import io.ktor.client.*
 import io.ktor.client.request.*
