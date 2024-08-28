@@ -25,6 +25,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
     implementation("io.ktor:ktor-server-body-limit:$ktor_version")
     testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
+    testImplementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 

@@ -13,6 +13,8 @@ import eu.darken.octi.kserver.device.deviceCredentials
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,7 +27,7 @@ class AccountRoute @Inject constructor(
 
     fun setup(rootRoute: RootRouting) {
         rootRoute.route("/v1/account") {
-            this.post {
+            post {
                 try {
                     create()
                 } catch (e: Exception) {
@@ -111,9 +113,11 @@ class AccountRoute @Inject constructor(
         val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
         log(TAG, INFO) { "delete(${callInfo}): Deleting account ${callerDevice.accountId}" }
 
-        deviceRepo.deleteDevices(callerDevice.accountId)
-        shareRepo.removeSharesForAccount(callerDevice.accountId)
-        accountRepo.deleteAccounts(listOf(callerDevice.accountId))
+        withContext(NonCancellable) {
+            deviceRepo.deleteDevices(callerDevice.accountId)
+            shareRepo.removeSharesForAccount(callerDevice.accountId)
+            accountRepo.deleteAccounts(listOf(callerDevice.accountId))
+        }
 
         call.respond(HttpStatusCode.OK).also {
             log(TAG, INFO) { "delete($callInfo): Account was deleted: ${callerDevice.accountId}" }

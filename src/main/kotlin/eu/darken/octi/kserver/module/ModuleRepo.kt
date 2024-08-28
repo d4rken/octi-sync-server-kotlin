@@ -39,11 +39,10 @@ class ModuleRepo @Inject constructor(
                 deviceRepo.allDevices().forEach { device: Device ->
                     device.sync.withLock {
                         try {
-                            val modulePath = device.path.resolve(MODULES_DIR)
-                            if (!modulePath.exists()) return@withLock
+                            if (!device.modulesPath.exists()) return@withLock
 
                             val now = Instant.now()
-                            val staleModules = modulePath.listDirectoryEntries().filter { path ->
+                            val staleModules = device.modulesPath.listDirectoryEntries().filter { path ->
                                 val metaFile = path.resolve(META_FILENAME)
                                 val lastAccessed = metaFile.getLastModifiedTime().toInstant()
                                 Duration.between(lastAccessed, now) > config.moduleExpiration
@@ -66,7 +65,7 @@ class ModuleRepo @Inject constructor(
         val digest = MessageDigest.getInstance("SHA-1")
         val hashBytes = digest.digest(moduleId.toByteArray())
         val safeName = hashBytes.joinToString("") { "%02x".format(it) }
-        return path.resolve("$MODULES_DIR/$safeName")
+        return modulesPath.resolve(safeName)
     }
 
     suspend fun read(caller: Device, target: Device, moduleId: ModuleId): Module.Read {
@@ -119,6 +118,23 @@ class ModuleRepo @Inject constructor(
             log(TAG) { "delete(${caller.id}, ${target.id}, $moduleId): Module deleted $info" }
         }
     }
+
+    suspend fun clear(caller: Device, targets: Set<Device>) {
+        log(TAG, VERBOSE) { "clear(${caller.id}}): Wiping ${targets.size} targets" }
+        targets.forEach { target ->
+            target.sync.withLock {
+                if (target.modulesPath.exists()) {
+                    log(TAG, VERBOSE) { "clear(${caller.id}}): Wiping ${target.id}" }
+                    target.modulesPath.deleteRecursively()
+                } else {
+                    log(TAG, VERBOSE) { "clear(${caller.id}}): No data stored for ${target.id}" }
+                }
+            }
+        }
+    }
+
+    private val Device.modulesPath: Path
+        get() = path.resolve(MODULES_DIR)
 
     companion object {
         private const val MODULES_DIR = "modules"

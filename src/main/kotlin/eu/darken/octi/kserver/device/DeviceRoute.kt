@@ -7,7 +7,9 @@ import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.common.verifyCaller
+import eu.darken.octi.kserver.module.ModuleRepo
 import io.ktor.http.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.*
@@ -17,6 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class DeviceRoute @Inject constructor(
     private val deviceRepo: DeviceRepo,
+    private val moduleRepo: ModuleRepo,
 ) {
 
     fun setup(rootRoute: RootRouting) {
@@ -40,6 +43,14 @@ class DeviceRoute @Inject constructor(
                 } catch (e: Exception) {
                     log(TAG, ERROR) { "deleteDevice($deviceId) failed: ${e.asLog()}" }
                     call.respond(HttpStatusCode.InternalServerError, "Failed to delete device")
+                }
+            }
+            post("/reset") {
+                try {
+                    resetDevices()
+                } catch (e: Exception) {
+                    log(TAG, ERROR) { "resetDevices() failed: ${e.asLog()}" }
+                    call.respond(HttpStatusCode.InternalServerError, "Failed to reset devices")
                 }
             }
         }
@@ -73,9 +84,37 @@ class DeviceRoute @Inject constructor(
         }
 
         deviceRepo.deleteDevice(deviceId)
+        moduleRepo.clear(callerDevice, setOf(targetDevice))
 
         call.respond(HttpStatusCode.OK).also {
             log(TAG, INFO) { "delete($callInfo): Device was deleted: $deviceId" }
+        }
+    }
+
+    private suspend fun RoutingContext.resetDevices() {
+        val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
+
+        var targetDevices = call.receive<ResetRequest>().targets
+            .map { deviceRepo.getDevice(it)!! }
+            .toSet()
+
+
+        if (targetDevices.any { it.accountId != callerDevice.accountId }) {
+            call.respond(HttpStatusCode.Unauthorized) { "Devices do not belong to your account" }
+            return
+        }
+
+        if (targetDevices.isEmpty()) {
+            log(TAG) { "No explicit targets provided, targeting all devices of this account." }
+            targetDevices = deviceRepo.getDevices(callerDevice.accountId).toSet()
+        }
+
+        log(TAG, INFO) { "resetDevices(${callInfo}): Resetting devices ${targetDevices.map { it.id }}" }
+
+        moduleRepo.clear(callerDevice, targetDevices)
+
+        call.respond(HttpStatusCode.OK).also {
+            log(TAG, INFO) { "resetDevices($callInfo): Devices were reset" }
         }
     }
 

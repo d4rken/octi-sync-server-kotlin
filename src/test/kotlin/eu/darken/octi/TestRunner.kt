@@ -6,8 +6,11 @@ import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
@@ -51,6 +54,13 @@ abstract class TestRunner {
                         port = appConfig.port
                     }
                 }
+                install(ContentNegotiation) {
+                    json(Json {
+                        prettyPrint = true
+                        isLenient = true
+                        ignoreUnknownKeys = true
+                    })
+                }
             }
 
             TestEnvironment(appConfig, app, client)
@@ -81,5 +91,13 @@ abstract class TestRunner {
 
     fun TestEnvironment.getSharesPath(credentials: Credentials): Path {
         return getAccountPath(credentials).resolve("shares")
+    }
+
+    fun TestEnvironment.getDevicePath(credentials: Credentials): Path {
+        return getAccountPath(credentials).resolve("devices").resolve(credentials.deviceId.toString())
+    }
+
+    fun TestEnvironment.getModulesPath(credentials: Credentials): Path {
+        return getDevicePath(credentials).resolve("modules")
     }
 }
