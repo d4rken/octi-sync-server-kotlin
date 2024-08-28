@@ -171,7 +171,7 @@ class ModuleFlowTest : TestRunner() {
     @Test
     fun `delete module - target id is required`() = runTest2 {
         val creds = createDevice()
-        deleteModule(creds, "abc", deviceId = null).apply {
+        deleteModuleRaw(creds, "abc", deviceId = null).apply {
             status shouldBe HttpStatusCode.BadRequest
             bodyAsText() shouldBe "Target device id not supplied"
         }
@@ -180,7 +180,7 @@ class ModuleFlowTest : TestRunner() {
     @Test
     fun `delete module - target device needs to exist`() = runTest2 {
         val creds = createDevice()
-        deleteModule(creds, "abc", deviceId = UUID.randomUUID()).apply {
+        deleteModuleRaw(creds, "abc", deviceId = UUID.randomUUID()).apply {
             status shouldBe HttpStatusCode.NotFound
             bodyAsText() shouldBe "Target device not found"
         }
@@ -190,7 +190,7 @@ class ModuleFlowTest : TestRunner() {
     fun `delete module - target device needs to be on the same account`() = runTest2 {
         val creds1 = createDevice()
         val creds2 = createDevice()
-        deleteModule(creds2, "abc", creds1.deviceId).apply {
+        deleteModuleRaw(creds2, "abc", creds1.deviceId).apply {
             status shouldBe HttpStatusCode.Unauthorized
             bodyAsText() shouldBe "Devices don't share the same account"
         }
@@ -201,20 +201,32 @@ class ModuleFlowTest : TestRunner() {
         val creds = createDevice()
         writeModule(creds, "abc", data = "test")
         readModuleRaw(creds, "abc").bodyAsText() shouldBe "test"
-        deleteModule(creds, "abc")
+        deleteModuleRaw(creds, "abc")
         readModuleRaw(creds, "abc").bodyAsText() shouldBe ""
     }
 
     @Test
     fun `delete from other devices`() = runTest2 {
         val creds1 = createDevice()
-        val creds2 = createDevice()
-        writeModule(creds1, "abc", data = "test")
-        readModuleRaw(creds1, "abc").bodyAsText() shouldBe "test"
-        deleteModule(creds2, "abc", creds1.deviceId).apply {
-            status shouldBe HttpStatusCode.Unauthorized
-            bodyAsText() shouldBe "Devices don't share the same account"
+        val creds2 = createDevice(creds1)
+        val creds3 = createDevice(creds1)
+        writeModule(creds1, "abc", creds1.deviceId, data = "test")
+        writeModule(creds1, "abc", creds2.deviceId, data = "test")
+        writeModule(creds1, "abc", creds3.deviceId, data = "test")
+        readModule(creds1, "abc") shouldBe "test"
+        readModule(creds2, "abc") shouldBe "test"
+        readModule(creds3, "abc") shouldBe "test"
+        deleteModuleRaw(creds1, "abc", creds1.deviceId).apply {
+            status shouldBe HttpStatusCode.OK
         }
-        readModuleRaw(creds1, "abc").bodyAsText() shouldBe "test"
+        deleteModuleRaw(creds1, "abc", creds2.deviceId).apply {
+            status shouldBe HttpStatusCode.OK
+        }
+        deleteModuleRaw(creds1, "abc", creds3.deviceId).apply {
+            status shouldBe HttpStatusCode.OK
+        }
+        readModule(creds1, "abc") shouldBe ""
+        readModule(creds2, "abc") shouldBe ""
+        readModule(creds3, "abc") shouldBe ""
     }
 }

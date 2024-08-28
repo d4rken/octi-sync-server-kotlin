@@ -181,7 +181,7 @@ suspend fun TestEnvironment.writeModule(
     setBody(data)
 }
 
-suspend fun TestEnvironment.deleteModule(
+suspend fun TestEnvironment.deleteModuleRaw(
     creds: Credentials,
     moduleId: String,
     deviceId: UUID? = creds.deviceId,
