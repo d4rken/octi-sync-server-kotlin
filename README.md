@@ -1,5 +1,7 @@
 # Octi Sync Server
 
+[![Code tests & eval](https://img.shields.io/github/actions/workflow/status/d4rken/octi-sync-server-kotlin/code-checks.yml?logo=githubactions&label=Code%20tests)](https://github.com/d4rken/octi-sync-server-kotlin/actions)
+
 This is a synchronization server for [Octi](https://github.com/d4rken-org/octi)
 
 ## Setup
