@@ -88,6 +88,7 @@ class DeviceFlowTest : TestRunner() {
             addCredentials(creds1)
             contentType(ContentType.Application.Json)
             setBody(setOf(creds1.deviceId.toString(), creds2.deviceId.toString()))
+            setBody("{targets: [${creds1.deviceId}, ${creds2.deviceId}]}")
         }
         readModule(creds1, "abc") shouldBe ""
         readModule(creds2, "abc") shouldBe ""
