@@ -23,7 +23,6 @@ class DeviceRoute @Inject constructor(
         rootRoute.route("/v1/devices") {
             get {
                 try {
-                    log(TAG, ERROR) { "$call" }
                     getDevices()
                 } catch (e: Exception) {
                     log(TAG, ERROR) { "getDevices() failed: ${e.asLog()}" }

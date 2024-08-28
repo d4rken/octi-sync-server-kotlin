@@ -1,7 +1,6 @@
 package eu.darken.octi
 
 import eu.darken.octi.kserver.App
-import eu.darken.octi.kserver.DaggerAppComponent
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.client.*
@@ -39,7 +38,7 @@ abstract class TestRunner {
         before: (App.Config) -> TestEnvironment = {
             Files.createDirectories(it.dataPath)
 
-            val app = DaggerAppComponent.builder().config(appConfig).build().application()
+            val app = App.createComponent(it).application()
             thread { app.launch() }
 
             while (!app.isRunning()) Thread.sleep(100)

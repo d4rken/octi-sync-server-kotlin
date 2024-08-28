@@ -98,7 +98,7 @@ class ModuleRoute @Inject constructor(
                 contentType = ContentType.Application.OctetStream
             )
         }.also {
-            log(TAG) { "readModule($callInfo): $moduleId was read (${read.size})" }
+            log(TAG) { "readModule($callInfo): ${read.size}B was read from $moduleId" }
         }
     }
 
@@ -113,7 +113,7 @@ class ModuleRoute @Inject constructor(
 
         moduleRepo.write(callerDevice, targetDevice, moduleId, write)
         call.respond(HttpStatusCode.OK).also {
-            log(TAG) { "writeModule($callInfo): $moduleId was written (${write.size})" }
+            log(TAG) { "writeModule($callInfo): ${write.size}B was written to $moduleId" }
         }
     }
 

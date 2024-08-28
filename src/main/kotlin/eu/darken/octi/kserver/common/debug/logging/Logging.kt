@@ -11,20 +11,16 @@ import java.io.StringWriter
  */
 
 object Logging {
-    enum class Priority(
-        val intValue: Int,
-        val shortLabel: String
-    ) {
-        VERBOSE(2, "V"),
-        DEBUG(3, "D"),
-        INFO(4, "I"),
-        WARN(5, "W"),
-        ERROR(6, "E"),
-        ASSERT(7, "WTF");
+    enum class Priority {
+        VERBOSE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+        ASSERT;
 
-        companion object {
-            fun fromAndroid(value: Int): Priority = values().firstOrNull { it.intValue == value } ?: ERROR
-        }
+        val code: Int
+            get() = Priority.entries.indexOf(this)
     }
 
     interface Logger {
@@ -38,7 +34,7 @@ object Logging {
         )
     }
 
-    private val internalLoggers = mutableListOf<Logger>()
+    private val internalLoggers = mutableListOf<Logger>(ConsoleLogger)
 
     val loggers: List<Logger>
         get() = synchronized(internalLoggers) { internalLoggers.toList() }

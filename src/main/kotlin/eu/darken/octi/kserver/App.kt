@@ -3,8 +3,7 @@ package eu.darken.octi.kserver
 import eu.darken.octi.kserver.common.AppScope
 import eu.darken.octi.kserver.common.RateLimitConfig
 import eu.darken.octi.kserver.common.debug.logging.ConsoleLogger
-import eu.darken.octi.kserver.common.debug.logging.Logging
-import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import java.nio.file.Path
@@ -12,23 +11,12 @@ import java.time.Duration
 import javax.inject.Inject
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
+import kotlin.reflect.full.memberProperties
 
 class App @Inject constructor(
-    private val config: Config,
     val appScope: AppScope,
     private val server: Server,
 ) {
-
-    init {
-        if (config.isDebug) {
-            println("Debug mode enabled")
-            if (Logging.loggers.none { it is ConsoleLogger }) {
-                Logging.install(ConsoleLogger())
-            }
-            log(TAG, INFO) { "Debug mode is active" }
-        }
-        log(TAG, INFO) { "App config is $config" }
-    }
 
     fun launch() {
         server.start()
@@ -58,9 +46,10 @@ class App @Inject constructor(
     )
 
     companion object {
+
         @JvmStatic
         fun main(args: Array<String>) {
-            println("Program arguments: ${args.joinToString()}")
+            log(TAG, INFO) { "Program arguments: ${args.joinToString()}" }
 
             val config = Config(
                 isDebug = args.any { it.startsWith("--debug") },
@@ -79,17 +68,25 @@ class App @Inject constructor(
                 },
             )
 
+            createComponent(config).application().launch()
+        }
+
+        fun createComponent(config: Config): AppComponent {
+            log(TAG, INFO) { "App config is\n---" }
+            Config::class.memberProperties.forEach { prop -> log(TAG, INFO) { "${prop.name}: ${prop.get(config)}" } }
+            log(TAG, INFO) { "---" }
+
             if (config.isDebug) {
-                println("Debug mode enabled")
-                if (Logging.loggers.none { it is ConsoleLogger }) {
-                    Logging.install(ConsoleLogger())
-                }
+                ConsoleLogger.logLevel = VERBOSE
+                log(TAG, VERBOSE) { "Debug mode is active" }
+                log(TAG, DEBUG) { "Debug mode is active" }
                 log(TAG, INFO) { "Debug mode is active" }
+            } else {
+                ConsoleLogger.logLevel = INFO
+                log(TAG, INFO) { "Debug mode disabled" }
             }
 
-            DaggerAppComponent.builder().config(config).build().application().apply {
-                launch()
-            }
+            return DaggerAppComponent.builder().config(config).build()
         }
 
         private val TAG = logTag("App")
