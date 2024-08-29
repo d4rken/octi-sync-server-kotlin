@@ -13,6 +13,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.absolute
 import kotlin.reflect.full.memberProperties
 
+
 class App @Inject constructor(
     val appScope: AppScope,
     private val server: Server,
@@ -72,6 +73,8 @@ class App @Inject constructor(
         }
 
         fun createComponent(config: Config): AppComponent {
+            log(TAG, INFO) { "SERVER BUILD: ${BuildInfo.GIT_SHA} (${BuildInfo.GIT_DATE})" }
+
             log(TAG, INFO) { "App config is\n---" }
             Config::class.memberProperties.forEach { prop -> log(TAG, INFO) { "${prop.name}: ${prop.get(config)}" } }
             log(TAG, INFO) { "---" }

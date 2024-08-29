@@ -1,3 +1,5 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     kotlin("jvm") version "1.9.24"
     application
@@ -45,3 +47,44 @@ tasks.test {
 application {
     mainClass.set("eu.darken.octi.kserver.App")
 }
+
+tasks.register("generateBuildInfo") {
+    doLast {
+        val gitSHA = ByteArrayOutputStream().use { outputStream ->
+            exec {
+                commandLine = "git rev-parse --short HEAD".split(" ")
+                standardOutput = outputStream
+            }
+            outputStream.toString().trim()
+        }
+
+        val gitDate = ByteArrayOutputStream().use { outputStream ->
+            exec {
+                commandLine = "git show -s --format=%ci $gitSHA".split(" ")
+                standardOutput = outputStream
+            }
+            outputStream.toString().trim()
+        }
+
+        val outputDir = File(buildDir, "generated/buildinfo")
+        outputDir.mkdirs()
+        File(outputDir, "BuildInfo.kt").apply {
+            writeText(
+                """
+                    package eu.darken.octi.kserver
+        
+                    object BuildInfo {
+                        const val GIT_SHA: String = "$gitSHA"
+                        const val GIT_DATE: String = "$gitDate"
+                    }
+                """.trimIndent()
+            )
+        }
+    }
+}
+
+tasks.named("compileKotlin") {
+    dependsOn("generateBuildInfo")
+}
+
+sourceSets["main"].java.srcDir("build/generated/buildinfo")
