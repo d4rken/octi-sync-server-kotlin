@@ -50,20 +50,30 @@ application {
 
 tasks.register("generateBuildInfo") {
     doLast {
-        val gitSHA = ByteArrayOutputStream().use { outputStream ->
-            exec {
-                commandLine = "git rev-parse --short HEAD".split(" ")
-                standardOutput = outputStream
+        val gitSHA = try {
+            ByteArrayOutputStream().use { outputStream ->
+                exec {
+                    commandLine = "git rev-parse --short HEAD".split(" ")
+                    standardOutput = outputStream
+                }
+                outputStream.toString().trim()
             }
-            outputStream.toString().trim()
+        } catch (e: Exception) {
+            print("gitSHA error: $e")
+            "?"
         }
 
-        val gitDate = ByteArrayOutputStream().use { outputStream ->
-            exec {
-                commandLine = "git show -s --format=%ci $gitSHA".split(" ")
-                standardOutput = outputStream
+        val gitDate = try {
+            ByteArrayOutputStream().use { outputStream ->
+                exec {
+                    commandLine = "git show -s --format=%ci $gitSHA".split(" ")
+                    standardOutput = outputStream
+                }
+                outputStream.toString().trim()
             }
-            outputStream.toString().trim()
+        } catch (e: Exception) {
+            print("gitDate error: $e")
+            "?"
         }
 
         val outputDir = File(buildDir, "generated/buildinfo")
