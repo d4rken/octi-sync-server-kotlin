@@ -22,7 +22,7 @@ class ShareRoute @Inject constructor(
     private val shareRepo: ShareRepo,
 ) {
 
-    fun setup(rootRoute: RootRouting) {
+    fun setup(rootRoute: Routing) {
         rootRoute.post("/v1/account/share") {
             try {
                 createShare()

@@ -25,7 +25,7 @@ class AccountRoute @Inject constructor(
     private val shareRepo: ShareRepo,
 ) {
 
-    fun setup(rootRoute: RootRouting) {
+    fun setup(rootRoute: Routing) {
         rootRoute.route("/v1/account") {
             post {
                 try {

@@ -51,7 +51,7 @@ class ModuleRoute @Inject constructor(
         }
     }
 
-    fun setup(rootRoute: RootRouting) {
+    fun setup(rootRoute: Routing) {
         rootRoute.route("/v1/module") {
             get("/{moduleId}") { catchError { readModule() } }
             post("/{moduleId}") { catchError { writeModule() } }

@@ -22,7 +22,7 @@ class DeviceRoute @Inject constructor(
     private val moduleRepo: ModuleRepo,
 ) {
 
-    fun setup(rootRoute: RootRouting) {
+    fun setup(rootRoute: Routing) {
         rootRoute.route("/v1/devices") {
             get {
                 try {
