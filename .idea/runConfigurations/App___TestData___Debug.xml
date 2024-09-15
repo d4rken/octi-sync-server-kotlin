@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="App - Debug" type="JetRunConfigurationType">
+  <configuration default="false" name="App - TestData - Debug" type="JetRunConfigurationType">
     <option name="MAIN_CLASS_NAME" value="eu.darken.octi.kserver.App" />
     <module name="octi-sync-server-kotlin.main" />
     <option name="PROGRAM_PARAMETERS" value="--debug --disable-rate-limits --datapath=./zdatapath" />

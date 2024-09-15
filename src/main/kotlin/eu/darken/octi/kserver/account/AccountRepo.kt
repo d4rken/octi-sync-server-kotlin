@@ -42,34 +42,37 @@ class AccountRepo @Inject constructor(
 
     init {
         runBlocking {
-            Files.newDirectoryStream(accountsPath)
-                .filter {
-                    if (it.isDirectory()) {
-                        true
-                    } else {
-                        log(TAG, WARN) { "Not a directory: $it" }
-                        false
-                    }
-                }
-                .forEach { accDir ->
-                    val configPath = accDir.resolve(ACC_FILENAME)
-                    if (configPath.exists()) {
-                        val accData = try {
-                            serializer.decodeFromString<Account.Data>(configPath.readText())
-                        } catch (e: IOException) {
-                            log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
-                            return@forEach
+            Files.newDirectoryStream(accountsPath).use { stream ->
+                stream.asSequence()
+                    .filter {
+                        log(TAG, VERBOSE) { "Reading $it" }
+                        if (it.isDirectory()) {
+                            true
+                        } else {
+                            log(TAG, WARN) { "Not a directory: $it" }
+                            false
                         }
-                        log(TAG) { "Account info loaded: $accData" }
-                        accounts[accData.id] = Account(
-                            data = accData,
-                            path = accDir,
-                        )
-                    } else {
-                        log(TAG, WARN) { "Missing account config for $accDir, cleaning up..." }
-                        accDir.deleteRecursively()
                     }
-                }
+                    .map { it to it.resolve(ACC_FILENAME) }
+                    .forEach { (accDir, configPath) ->
+                        if (configPath.exists()) {
+                            val accData = try {
+                                serializer.decodeFromString<Account.Data>(configPath.readText())
+                            } catch (e: IOException) {
+                                log(TAG, ERROR) { "Failed to read $accDir: ${e.asLog()}" }
+                                return@forEach
+                            }
+                            log(TAG) { "Account info loaded: $accData" }
+                            accounts[accData.id] = Account(
+                                data = accData,
+                                path = accDir,
+                            )
+                        } else {
+                            log(TAG, WARN) { "Missing account config for $accDir, cleaning up..." }
+                            accDir.deleteRecursively()
+                        }
+                    }
+            }
 
             log(TAG, INFO) { "${accounts.size} accounts loaded into memory" }
         }

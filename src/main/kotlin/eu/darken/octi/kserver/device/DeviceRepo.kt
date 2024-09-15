@@ -15,7 +15,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
-import java.nio.file.Files
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -41,10 +40,10 @@ class DeviceRepo @Inject constructor(
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        Files
-                            .newDirectoryStream(account.path.resolve(DEVICES_DIR))
+                        account.path.resolve(DEVICES_DIR)
+                            .listDirectoryEntries()
                             .map { account to it }
-                            .also { log(TAG) { "Listing devices for ${account.id}" } }
+                            .also { log(TAG, VERBOSE) { "Listing ${it.size} device(s) for account ${account.id}" } }
                     } catch (e: IOException) {
                         log(TAG, ERROR) { "Failed to list devices for $account" }
                         null
@@ -52,6 +51,7 @@ class DeviceRepo @Inject constructor(
                 }
                 .flatten()
                 .forEach { (account, deviceDir) ->
+                    log(TAG, VERBOSE) { "Reading $deviceDir" }
                     val deviceData = try {
                         serializer.decodeFromString<Device.Data>(deviceDir.resolve(DEVICE_FILENAME).readText())
                     } catch (e: IOException) {

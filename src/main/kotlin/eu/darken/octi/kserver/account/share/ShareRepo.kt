@@ -21,10 +21,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
+import kotlin.io.path.*
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -46,23 +43,24 @@ class ShareRepo @Inject constructor(
                 .asSequence()
                 .mapNotNull { account ->
                     try {
-                        Files
-                            .newDirectoryStream(account.path.resolve(SHARES_DIR))
-                            .map { account to it }
-                            .toList().also {
-                                log(TAG) { "Loading ${it.size} shares from account with ID=${account.id}" }
-                            }
+                        account.path.resolve(SHARES_DIR)
+                            .takeIf { it.exists() }
+                            ?.listDirectoryEntries()
+                            ?.takeIf { it.isNotEmpty() }
+                            ?.map { account to it }
+                            ?.toList()
+                            ?.also { log(TAG) { "Loading ${it.size} shares from account ${account.id}" } }
                     } catch (e: IOException) {
-                        log(TAG, ERROR) { "Failed to list shares for $account" }
+                        log(TAG, ERROR) { "Failed to list shares for $account\n${e.asLog()}" }
                         null
                     }
                 }
                 .flatten()
                 .forEach { (account, path) ->
-                    val data: Share.Data = try {
-                        serializer.decodeFromString(path.readText())
+                    val data = try {
+                        serializer.decodeFromString<Share.Data>(path.readText())
                     } catch (e: IOException) {
-                        log(TAG, ERROR) { "Failed to read $path: ${e.asLog()}" }
+                        log(TAG, ERROR) { "Failed to read share $path: ${e.asLog()}" }
                         return@forEach
                     }
                     log(TAG) { "Share info loaded: $data" }

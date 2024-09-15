@@ -40,7 +40,7 @@ data class Device(
         @Contextual val addedAt: Instant = Instant.now(),
         @Contextual val lastSeen: Instant = Instant.now(),
     ) {
-        override fun toString(): String = "Device.Data($addedAt, $lastSeen, $id, ${password.take(16)})"
+        override fun toString(): String = "Device.Data(added=$addedAt, seen=$lastSeen, $id, ${password.take(8)}...)"
     }
 }
 

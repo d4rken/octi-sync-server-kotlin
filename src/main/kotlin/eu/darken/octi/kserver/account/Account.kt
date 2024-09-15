@@ -22,7 +22,9 @@ data class Account(
     data class Data(
         @Contextual val id: AccountId = UUID.randomUUID(),
         @Contextual val createdAt: Instant = Instant.now(),
-    )
+    ) {
+        override fun toString(): String = "Account.Data(created=$createdAt, $id)"
+    }
 }
 
 typealias AccountId = UUID

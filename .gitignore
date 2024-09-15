@@ -43,4 +43,4 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-zdatapath
+zdatapath*
