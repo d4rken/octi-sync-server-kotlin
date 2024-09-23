@@ -90,7 +90,7 @@ class AccountRoute @Inject constructor(
             accountRepo.getAccount(share.accountId)!!
         } else {
             // Normal account creation
-            log(TAG, INFO) { "create($callInfo): No ShareCode and account does not exist, create one" }
+            log(TAG, INFO) { "create($callInfo): Creating new account" }
             accountRepo.createAccount()
         }
         // TODO can share be consumed and then error prevents creation?
