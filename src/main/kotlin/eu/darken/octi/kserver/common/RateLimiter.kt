@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
 
 data class RateLimitConfig(
-    val limit: Int = 60,
+    val limit: Int = 120,
     val resetTime: Duration = Duration.ofSeconds(30),
 )
 
