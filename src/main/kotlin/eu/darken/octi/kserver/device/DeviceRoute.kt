@@ -68,7 +68,7 @@ class DeviceRoute @Inject constructor(
                 )
             }
         )
-        call.respond(response).also { log(TAG, INFO) { "getDevices($callInfo): -> $response" } }
+        call.respond(response).also { log(TAG) { "getDevices($callInfo): -> $response" } }
     }
 
     private suspend fun RoutingContext.deleteDevice(deviceId: DeviceId) {
