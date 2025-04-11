@@ -1,11 +1,11 @@
 package eu.darken.octi.kserver.common
 
-import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
-import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import kotlinx.coroutines.*
 import java.time.Duration
@@ -49,6 +49,7 @@ fun Application.installRateLimit(config: RateLimitConfig) {
         if (currentTime.isAfter(resetTime)) {
             requests[clientIp] = Pair(1, currentTime.plusSeconds(config.resetTime.seconds))
         } else if (requestCount >= config.limit) {
+            log(WARN) { "Rate limits exceeded by $clientIp for ${call.request.httpMethod.value} ${call.request.uri}" }
             call.respond(HttpStatusCode.TooManyRequests, "Rate limit exceeded. Try again later.")
             finish()
             return@intercept
