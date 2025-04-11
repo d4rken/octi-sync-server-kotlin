@@ -2,6 +2,7 @@ package eu.darken.octi.kserver.common
 
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.*
 import eu.darken.octi.kserver.common.debug.logging.log
+import eu.darken.octi.kserver.common.debug.logging.logTag
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
@@ -17,20 +18,29 @@ data class RateLimitConfig(
     val resetTime: Duration = Duration.ofSeconds(60),
 )
 
+private val TAG = logTag("RateLimiter")
+
+private data class ClientRateState(
+    val id: String,
+    val requests: Int = 0,
+    val resetAt: Instant,
+)
+
 fun Application.installRateLimit(config: RateLimitConfig) {
-    log(INFO) { "Rate limits are set to $config" }
-    val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
+    log(TAG, INFO) { "Rate limits are set to $config" }
+    val rateLimitCache = ConcurrentHashMap<String, ClientRateState>()
 
     launch(Dispatchers.IO) {
         while (currentCoroutineContext().isActive) {
-            log(VERBOSE) { "Checking for stale rate limit entries..." }
+            log(TAG) { "Checking for stale rate limit entries (${rateLimitCache.size} entries)..." }
+            val top10 = rateLimitCache.values.sortedByDescending { it.requests }.take(10)
+            log(TAG, VERBOSE) { "Rate limit top 10 by requests: $top10" }
             val now = Instant.now()
-            val staleEntries = requests.filterValues { (_, resetTime) -> now.isAfter(resetTime) }
+            val staleEntries = rateLimitCache.filterValues { state -> now.isAfter(state.resetAt) }
             if (staleEntries.isNotEmpty()) {
-                log { "Removing ${staleEntries.size} stale rate limit entries: $staleEntries" }
-                staleEntries.keys.forEach { requests.remove(it) }
+                log(TAG) { "Removing ${staleEntries.size} stale rate limit entries: $staleEntries" }
+                staleEntries.keys.forEach { rateLimitCache.remove(it) }
             }
-            log(VERBOSE) { "Entries checked, now $requests" }
             delay(config.resetTime.toMillis() / 2)
         }
     }
@@ -39,22 +49,20 @@ fun Application.installRateLimit(config: RateLimitConfig) {
         val clientIp = call.request.run {
             headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: origin.remoteAddress
         }
-        val currentTime = Instant.now()
+        val now = Instant.now()
+        val calldetails = "${call.request.httpMethod.value} ${call.request.uri}"
 
-        val requestInfo = requests[clientIp] ?: Pair(0, currentTime.plusSeconds(config.resetTime.seconds))
-        log(VERBOSE) { "Rate limits for current request: $requestInfo" }
-        val requestCount = requestInfo.first
-        val resetTime = requestInfo.second
+        val rateState = rateLimitCache[clientIp] ?: ClientRateState(id = clientIp, resetAt = now + config.resetTime)
 
-        if (currentTime.isAfter(resetTime)) {
-            requests[clientIp] = Pair(1, currentTime.plusSeconds(config.resetTime.seconds))
-        } else if (requestCount >= config.limit) {
-            log(WARN) { "Rate limits exceeded by $clientIp for ${call.request.httpMethod.value} ${call.request.uri}" }
+        if (now.isAfter(rateState.resetAt)) {
+            rateLimitCache[clientIp] = ClientRateState(clientIp, 1, now + config.resetTime)
+        } else if (rateState.requests >= config.limit) {
+            log(TAG, WARN) { "Rate limits exceeded by $rateState -- $calldetails" }
             call.respond(HttpStatusCode.TooManyRequests, "Rate limit exceeded. Try again later.")
             finish()
             return@intercept
         } else {
-            requests[clientIp] = Pair(requestCount + 1, resetTime)
+            rateLimitCache[clientIp] = rateState.copy(requests = rateState.requests + 1)
         }
     }
 }
