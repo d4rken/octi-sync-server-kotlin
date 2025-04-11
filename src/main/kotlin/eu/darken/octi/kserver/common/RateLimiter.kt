@@ -1,16 +1,16 @@
 package eu.darken.octi.kserver.common
 
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.VERBOSE
 import eu.darken.octi.kserver.common.debug.logging.log
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.response.*
+import kotlinx.coroutines.*
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-
-val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
 
 data class RateLimitConfig(
     val limit: Int = 512,
@@ -19,6 +19,22 @@ data class RateLimitConfig(
 
 fun Application.installRateLimit(config: RateLimitConfig) {
     log(INFO) { "Rate limits are set to $config" }
+    val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
+
+    launch(Dispatchers.IO) {
+        while (currentCoroutineContext().isActive) {
+            log(VERBOSE) { "Checking for stale rate limit entries..." }
+            val now = Instant.now()
+            val staleEntries = requests.filterValues { (_, resetTime) -> now.isAfter(resetTime) }
+            if (staleEntries.isNotEmpty()) {
+                log { "Removing ${staleEntries.size} stale rate limit entries: $staleEntries" }
+                staleEntries.keys.forEach { requests.remove(it) }
+            }
+            log(VERBOSE) { "Entries checked, now $requests" }
+            delay(config.resetTime.toMillis() / 2)
+        }
+    }
+
     intercept(ApplicationCallPipeline.Plugins) {
         val clientIp = call.request.run {
             headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: origin.remoteAddress
@@ -26,7 +42,7 @@ fun Application.installRateLimit(config: RateLimitConfig) {
         val currentTime = Instant.now()
 
         val requestInfo = requests[clientIp] ?: Pair(0, currentTime.plusSeconds(config.resetTime.seconds))
-        log { "Rate limits for current request: $requestInfo" }
+        log(VERBOSE) { "Rate limits for current request: $requestInfo" }
         val requestCount = requestInfo.first
         val resetTime = requestInfo.second
 
