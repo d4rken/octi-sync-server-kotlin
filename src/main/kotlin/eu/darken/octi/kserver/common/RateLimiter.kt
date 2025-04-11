@@ -13,17 +13,20 @@ import java.util.concurrent.ConcurrentHashMap
 val requests = ConcurrentHashMap<String, Pair<Int, Instant>>()
 
 data class RateLimitConfig(
-    val limit: Int = 120,
-    val resetTime: Duration = Duration.ofSeconds(30),
+    val limit: Int = 512,
+    val resetTime: Duration = Duration.ofSeconds(60),
 )
 
 fun Application.installRateLimit(config: RateLimitConfig) {
     log(INFO) { "Rate limits are set to $config" }
     intercept(ApplicationCallPipeline.Plugins) {
-        val clientIp = call.request.origin.remoteHost
+        val clientIp = call.request.run {
+            headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: origin.remoteAddress
+        }
         val currentTime = Instant.now()
 
         val requestInfo = requests[clientIp] ?: Pair(0, currentTime.plusSeconds(config.resetTime.seconds))
+        log { "Rate limits for current request: $requestInfo" }
         val requestCount = requestInfo.first
         val resetTime = requestInfo.second
 
