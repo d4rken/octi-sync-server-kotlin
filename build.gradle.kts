@@ -31,7 +31,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    implementation("ch.qos.logback:logback-classic:1.3.14")
+    implementation("ch.qos.logback:logback-classic:1.3.15")
 
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
