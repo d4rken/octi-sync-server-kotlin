@@ -8,4 +8,5 @@ FROM openjdk:26-jdk
 RUN microdnf install findutils -y
 WORKDIR /octi-k-server
 COPY --from=builder /octi-k-server/build/install/octi-sync-server-kotlin/ .
-ENTRYPOINT ["./bin/octi-sync-server-kotlin", "--datapath=${OCTI_DATAPATH:-/etc/octi-k-server}", "--port=${OCTI_PORT:-8080}"]
+ENTRYPOINT ./bin/octi-sync-server-kotlin --datapath=${OCTI_DATAPATH:-/etc/octi-k-server} --port=${OCTI_PORT:-8080}
+# Entrypoint is in sh mode, for env compatability, otherwise the built image can't start
