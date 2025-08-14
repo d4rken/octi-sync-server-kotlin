@@ -13,7 +13,7 @@ This is a synchronization server for [Octi](https://github.com/d4rken-org/octi)
 ```
 
 The binaries you can copy to a server will be placed under `./build/install/octi-sync-server-kotlin`.
-More details [here](https://ktor.io/docs/3.0.0-beta-2/server-packaging.html).
+More details [here](https://ktor.io/docs/server-packaging.html).
 
 ### Run server
 
