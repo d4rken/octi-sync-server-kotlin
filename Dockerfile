@@ -1,5 +1,5 @@
 FROM gradle:latest AS builder
-# ^ 2 Critical & 4 High vulnerabilities, as per Docker DX (14.08.2025)
+# ^ 2 Critical & 4 High vulnerabilities (14.08.2025)
 WORKDIR /octi-sync-server
 
 # Copy Gradle wrapper files first for better caching
@@ -24,36 +24,26 @@ COPY src/ ./src/
 # Build the application
 RUN ./gradlew clean installDist --no-daemon
 
-FROM openjdk:26-jdk
-
-# Install findutils and create non-root user for security
-RUN microdnf install findutils -y && \
-    microdnf clean all && \
-    useradd -r -u 1000 octi-user
-
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /octi-sync-server
+
+# Create non-root user for security
+RUN useradd -r -u 1000 octi-user
 
 # Copy built application
 COPY --from=builder /octi-sync-server/build/install/octi-sync-server-kotlin/ .
 
-# Set ownership and make executable
-RUN chown -R octi-user:octi-user /octi-sync-server && \
-    chmod +x ./bin/octi-sync-server-kotlin
+# Copy entrypoint script
+COPY docker-entrypoint.sh .
 
-# Create data directory
-RUN mkdir -p /etc/octi-sync-server && \
-    chown -R octi-user:octi-user /etc/octi-sync-server
+# Fix line endings and set ownership and make executable
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh && \
+    chown -R octi-user:octi-user /octi-sync-server && \
+    chmod +x ./bin/octi-sync-server-kotlin && \
+    chmod +x ./docker-entrypoint.sh
 
 # Switch to non-root user
 USER octi-user
 
-# Set default environment variables
-ENV OCTI_DATAPATH=/etc/octi-sync-server
-ENV OCTI_PORT=8080
-
-# Expose port
-# EXPOSE 8080
-# ^ Why tho?
-
-# Use JSON array format for entrypoint with shell to handle env vars
-ENTRYPOINT ["sh", "-c", "./bin/octi-sync-server-kotlin --datapath=${OCTI_DATAPATH} --port=${OCTI_PORT}"]
+# Use the entrypoint script
+ENTRYPOINT ["./docker-entrypoint.sh"]
