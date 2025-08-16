@@ -24,11 +24,11 @@ COPY src/ ./src/
 # Build the application
 RUN ./gradlew clean installDist --no-daemon
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:24-jre
 WORKDIR /octi-sync-server
 
-# Create non-root user for security
-RUN useradd -r -u 1000 octi-user
+# Create non-root user for security (let system assign UID)
+RUN useradd -r -s /bin/bash octi-user
 
 # Copy built application
 COPY --from=builder /octi-sync-server/build/install/octi-sync-server-kotlin/ .
