@@ -28,7 +28,7 @@ FROM eclipse-temurin:24-jre
 WORKDIR /octi-sync-server
 
 # Create non-root user for security (let system assign UID)
-RUN useradd -r -s /bin/bash octi-user
+RUN useradd -r -s /bin/bash -m octi-user
 
 # Copy built application
 COPY --from=builder /octi-sync-server/build/install/octi-sync-server-kotlin/ .
@@ -36,14 +36,21 @@ COPY --from=builder /octi-sync-server/build/install/octi-sync-server-kotlin/ .
 # Copy entrypoint script
 COPY docker-entrypoint.sh .
 
-# Fix line endings and set ownership and make executable
-RUN sed -i 's/\r$//' ./docker-entrypoint.sh && \
-    chown -R octi-user:octi-user /octi-sync-server && \
+# Create data directory and set permissions
+RUN mkdir -p /etc/octi-sync-server && \
+    sed -i 's/\r$//' ./docker-entrypoint.sh && \
+    chown -R octi-user:octi-user /octi-sync-server /etc/octi-sync-server && \
     chmod +x ./bin/octi-sync-server-kotlin && \
     chmod +x ./docker-entrypoint.sh
 
 # Switch to non-root user
 USER octi-user
+
+# Expose the application port
+EXPOSE 8080
+
+# Declare volume for data persistence
+VOLUME ["/etc/octi-sync-server"]
 
 # Use the entrypoint script
 ENTRYPOINT ["./docker-entrypoint.sh"]
