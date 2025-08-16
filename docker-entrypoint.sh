@@ -37,6 +37,8 @@ validate_datapath() {
     if [ ! -d "$OCTI_DATAPATH" ]; then
         echo "Creating data directory: $OCTI_DATAPATH"
         mkdir -p "$OCTI_DATAPATH"
+        chown -R octi-user:octi-user "$OCTI_DATAPATH"
+        CHMOD -R +w:octi-user "$OCTI_DATAPATH"
     fi
     
     if [ ! -w "$OCTI_DATAPATH" ]; then
