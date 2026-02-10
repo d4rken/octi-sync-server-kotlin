@@ -8,7 +8,6 @@ import eu.darken.octi.kserver.device.DeviceId
 import eu.darken.octi.kserver.device.DeviceRepo
 import eu.darken.octi.kserver.device.deviceCredentials
 import io.ktor.http.*
-import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -17,7 +16,7 @@ import java.util.*
 
 val RoutingContext.callInfo: String
     get() {
-        val ipAddress = call.request.origin.remoteHost
+        val ipAddress = call.request.clientIp()
         val userAgent = call.request.headers["User-Agent"]
         return "$ipAddress ($userAgent)"
     }

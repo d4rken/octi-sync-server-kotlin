@@ -1,5 +1,16 @@
 package eu.darken.octi.kserver.common
 
+import io.ktor.server.request.*
+
+fun ApplicationRequest.clientIp(): String {
+    val connectionIp = local.remoteAddress
+    return if (IpHelper.isLoopback(connectionIp)) {
+        headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: connectionIp
+    } else {
+        connectionIp
+    }
+}
+
 object IpHelper {
 
     private val LOOPBACK_ADDRESSES = setOf("127.0.0.1", "::1", "0:0:0:0:0:0:0:1")

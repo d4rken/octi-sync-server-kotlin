@@ -5,7 +5,6 @@ import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import kotlinx.coroutines.*
@@ -46,13 +45,7 @@ fun Application.installRateLimit(config: RateLimitConfig) {
     }
 
     intercept(ApplicationCallPipeline.Plugins) {
-        val connectionIp = call.request.origin.remoteAddress
-        val clientIp = if (IpHelper.isLoopback(connectionIp)) {
-            // Request is from a local reverse proxy, trust X-Forwarded-For
-            call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: connectionIp
-        } else {
-            connectionIp
-        }
+        val clientIp = call.request.clientIp()
         val now = Instant.now()
         val calldetails = "${call.request.httpMethod.value} ${call.request.uri}"
 

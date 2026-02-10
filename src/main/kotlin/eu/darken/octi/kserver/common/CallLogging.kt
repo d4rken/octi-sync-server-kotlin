@@ -11,7 +11,7 @@ fun Application.installCallLogging() {
         val method = call.request.httpMethod.value
         val uri = call.request.uri
         val userAgent = call.request.userAgent() ?: "Unknown"
-        val ip = call.request.header("X-Forwarded-For") ?: call.request.local.remoteHost
+        val ip = call.request.clientIp()
         log("HTTP", VERBOSE) { "$ip($userAgent): $method - $uri" }
     }
 }
