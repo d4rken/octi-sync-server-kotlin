@@ -46,7 +46,13 @@ fun Application.installRateLimit(config: RateLimitConfig) {
     }
 
     intercept(ApplicationCallPipeline.Plugins) {
-        val clientIp = call.request.origin.remoteAddress
+        val connectionIp = call.request.origin.remoteAddress
+        val clientIp = if (IpHelper.isLoopback(connectionIp)) {
+            // Request is from a local reverse proxy, trust X-Forwarded-For
+            call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: connectionIp
+        } else {
+            connectionIp
+        }
         val now = Instant.now()
         val calldetails = "${call.request.httpMethod.value} ${call.request.uri}"
 

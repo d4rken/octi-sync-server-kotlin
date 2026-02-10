@@ -58,31 +58,37 @@ class RateLimiterTest : TestRunner() {
     }
 
     @Test
-    fun `test spoofed X-Forwarded-For does not bypass rate limit`() = runTest2(
+    fun `test different X-Forwarded-For from trusted proxy have separate rate limits`() = runTest2(
         appConfig = baseConfig.copy(
             rateLimit = RateLimitConfig(limit = 2, resetTime = Duration.ofSeconds(5))
         )
     ) {
-        // Rate limiting uses origin.remoteAddress, so spoofed headers should not help
+        // Tests connect via loopback (trusted proxy), so X-Forwarded-For is used
+        repeat(2) {
+            http.get("/v1/status") {
+                header("X-Forwarded-For", "192.168.1.1")
+            }.apply {
+                status shouldBe HttpStatusCode.OK
+            }
+            Thread.sleep(100)
+        }
+
+        // 192.168.1.1 is exhausted
         http.get("/v1/status") {
             header("X-Forwarded-For", "192.168.1.1")
         }.apply {
-            status shouldBe HttpStatusCode.OK
-        }
-        Thread.sleep(100)
-
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.2")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
-        }
-        Thread.sleep(100)
-
-        // Third request should be rate limited despite different X-Forwarded-For
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "10.0.0.1")
-        }.apply {
             status shouldBe HttpStatusCode.TooManyRequests
+        }
+        Thread.sleep(100)
+
+        // 192.168.1.2 should still have its own limit
+        repeat(2) {
+            http.get("/v1/status") {
+                header("X-Forwarded-For", "192.168.1.2")
+            }.apply {
+                status shouldBe HttpStatusCode.OK
+            }
+            Thread.sleep(100)
         }
     }
 
@@ -92,15 +98,19 @@ class RateLimiterTest : TestRunner() {
             rateLimit = RateLimitConfig(limit = 2, resetTime = Duration.ofSeconds(2))
         )
     ) {
-        // Exhaust rate limit
+        // Exhaust rate limit for an IP
         repeat(2) {
-            http.get("/v1/status").apply {
+            http.get("/v1/status") {
+                header("X-Forwarded-For", "192.168.1.1")
+            }.apply {
                 status shouldBe HttpStatusCode.OK
             }
             Thread.sleep(100)
         }
 
-        http.get("/v1/status").apply {
+        http.get("/v1/status") {
+            header("X-Forwarded-For", "192.168.1.1")
+        }.apply {
             status shouldBe HttpStatusCode.TooManyRequests
         }
         Thread.sleep(100)
@@ -110,7 +120,9 @@ class RateLimiterTest : TestRunner() {
 
         // Should be able to make requests again since entries were cleaned up
         repeat(2) {
-            http.get("/v1/status").apply {
+            http.get("/v1/status") {
+                header("X-Forwarded-For", "192.168.1.1")
+            }.apply {
                 status shouldBe HttpStatusCode.OK
             }
             Thread.sleep(100)
