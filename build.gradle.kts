@@ -1,11 +1,11 @@
 import java.io.ByteArrayOutputStream
 
 plugins {
-    kotlin("jvm") version "2.0.20"
+    kotlin("jvm") version "2.3.10"
     application
-    kotlin("kapt") version "2.0.20"
-    kotlin("plugin.serialization") version "2.0.20"
-    id("io.ktor.plugin") version "3.0.0-rc-1"
+    id("com.google.devtools.ksp") version "2.3.5"
+    kotlin("plugin.serialization") version "2.3.10"
+    id("io.ktor.plugin") version "3.4.0"
 }
 
 group = "eu.darken"
@@ -16,26 +16,25 @@ repositories {
 }
 
 dependencies {
-    implementation("com.google.dagger:dagger:2.51")
-    kapt("com.google.dagger:dagger-compiler:2.51")
+    implementation("com.google.dagger:dagger:2.59.1")
+    ksp("com.google.dagger:dagger-compiler:2.59.1")
 
-    val ktorVersion = "3.0.0-rc-1"
+    val ktorVersion = "3.4.0"
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-server-body-limit:$ktorVersion")
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
     testImplementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
-    implementation("ch.qos.logback:logback-classic:1.3.15")
+    implementation("ch.qos.logback:logback-classic:1.5.29")
 
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
-    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.2")
+    testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
     testImplementation("io.kotest:kotest-assertions-core:5.9.1")
 }
@@ -76,7 +75,7 @@ tasks.register("generateBuildInfo") {
             "?"
         }
 
-        val outputDir = File(buildDir, "generated/buildinfo")
+        val outputDir = File(layout.buildDirectory.asFile.get(), "generated/buildinfo")
         outputDir.mkdirs()
         File(outputDir, "BuildInfo.kt").apply {
             writeText(

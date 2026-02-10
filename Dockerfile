@@ -1,9 +1,4 @@
-FROM gradle:9.0 AS builder
-# ^ 2 Critical, 4 High, 23 Medium, 4 Low vulnerabilities (04.12.2025)
-# gradle 8.9, 8.10, 8.11, 8.12, 8.13 and 9.0 work
-# gradle 8.14 does nothing(doesn't build at all, no binary, no logs)
-# gradle 9.1 Fatal Errors due to some incompatability with jdk25
-# gradle 9.x with jdk21 does nothing, much like 8.14
+FROM gradle:8.13 AS builder
 WORKDIR /octi-sync-server
 
 # Copy Gradle wrapper files first for better caching

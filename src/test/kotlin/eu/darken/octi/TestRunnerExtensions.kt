@@ -106,7 +106,7 @@ data class TestDevices(
     @Serializable
     data class Device(
         @Serializable(with = UUIDSerializer::class) val id: UUID,
-        val version: String = "Ktor client",
+        val version: String = "ktor-client",
     )
 }
 
