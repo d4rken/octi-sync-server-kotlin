@@ -46,9 +46,7 @@ fun Application.installRateLimit(config: RateLimitConfig) {
     }
 
     intercept(ApplicationCallPipeline.Plugins) {
-        val clientIp = call.request.run {
-            headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim() ?: origin.remoteAddress
-        }
+        val clientIp = call.request.origin.remoteAddress
         val now = Instant.now()
         val calldetails = "${call.request.httpMethod.value} ${call.request.uri}"
 

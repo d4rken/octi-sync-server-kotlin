@@ -58,38 +58,29 @@ class RateLimiterTest : TestRunner() {
     }
 
     @Test
-    fun `test different IPs have separate rate limits`() = runTest2(
+    fun `test spoofed X-Forwarded-For does not bypass rate limit`() = runTest2(
         appConfig = baseConfig.copy(
             rateLimit = RateLimitConfig(limit = 2, resetTime = Duration.ofSeconds(5))
         )
     ) {
-        repeat(2) {
-            http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.1")
-            }.apply {
-                status shouldBe HttpStatusCode.OK
-            }
-            Thread.sleep(100)
-        }
-
-        repeat(2) {
-            http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.2")
-            }.apply {
-                status shouldBe HttpStatusCode.OK
-            }
-            Thread.sleep(100)
-        }
-
+        // Rate limiting uses origin.remoteAddress, so spoofed headers should not help
         http.get("/v1/status") {
             header("X-Forwarded-For", "192.168.1.1")
         }.apply {
-            status shouldBe HttpStatusCode.TooManyRequests
+            status shouldBe HttpStatusCode.OK
         }
         Thread.sleep(100)
 
         http.get("/v1/status") {
             header("X-Forwarded-For", "192.168.1.2")
+        }.apply {
+            status shouldBe HttpStatusCode.OK
+        }
+        Thread.sleep(100)
+
+        // Third request should be rate limited despite different X-Forwarded-For
+        http.get("/v1/status") {
+            header("X-Forwarded-For", "10.0.0.1")
         }.apply {
             status shouldBe HttpStatusCode.TooManyRequests
         }
@@ -101,51 +92,28 @@ class RateLimiterTest : TestRunner() {
             rateLimit = RateLimitConfig(limit = 2, resetTime = Duration.ofSeconds(2))
         )
     ) {
-        // Make requests from two different IPs
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.1")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
+        // Exhaust rate limit
+        repeat(2) {
+            http.get("/v1/status").apply {
+                status shouldBe HttpStatusCode.OK
+            }
+            Thread.sleep(100)
         }
-        Thread.sleep(100)
 
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.2")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
+        http.get("/v1/status").apply {
+            status shouldBe HttpStatusCode.TooManyRequests
         }
         Thread.sleep(100)
 
         // Wait for entries to become stale (2.5 seconds > resetTime of 2 seconds)
         Thread.sleep(2500)
 
-        // Make new requests from both IPs
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.1")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
-        }
-        Thread.sleep(100)
-
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.2")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
-        }
-        Thread.sleep(100)
-
-        // Both IPs should be able to make requests again since their entries were cleaned up
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.1")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
-        }
-        Thread.sleep(100)
-
-        http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.2")
-        }.apply {
-            status shouldBe HttpStatusCode.OK
+        // Should be able to make requests again since entries were cleaned up
+        repeat(2) {
+            http.get("/v1/status").apply {
+                status shouldBe HttpStatusCode.OK
+            }
+            Thread.sleep(100)
         }
     }
 }
