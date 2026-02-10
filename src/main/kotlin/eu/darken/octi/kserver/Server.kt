@@ -11,6 +11,7 @@ import eu.darken.octi.kserver.common.installPayloadLimit
 import eu.darken.octi.kserver.common.installRateLimit
 import eu.darken.octi.kserver.device.DeviceRoute
 import eu.darken.octi.kserver.module.ModuleRoute
+import eu.darken.octi.kserver.myip.MyIpRoute
 import eu.darken.octi.kserver.status.StatusRoute
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -29,6 +30,7 @@ class Server @Inject constructor(
     private val shareRoute: ShareRoute,
     private val deviceRoute: DeviceRoute,
     private val moduleRoute: ModuleRoute,
+    private val myIpRoute: MyIpRoute,
     private val serializers: SerializersModule,
 ) {
 
@@ -58,6 +60,7 @@ class Server @Inject constructor(
                 shareRoute.setup(this)
                 deviceRoute.setup(this)
                 moduleRoute.setup(this)
+                myIpRoute.setup(this)
             }
         }
     }
