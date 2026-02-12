@@ -5,7 +5,9 @@ import io.ktor.server.request.*
 fun ApplicationRequest.clientIp(): String {
     val connectionIp = local.remoteAddress
     return if (IpHelper.isLoopback(connectionIp)) {
-        headers["X-Real-IP"]?.trim() ?: connectionIp
+        headers["X-Real-IP"]?.trim()
+            ?: headers["X-Forwarded-For"]?.split(",")?.lastOrNull()?.trim()
+            ?: connectionIp
     } else {
         connectionIp
     }
