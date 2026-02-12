@@ -60,7 +60,12 @@ class ModuleRoute @Inject constructor(
     }
 
     private suspend fun RoutingContext.verifyTarget(callerDevice: Device): Device? {
-        val targetDeviceId: DeviceId? = call.request.queryParameters["device-id"]?.let { UUID.fromString(it) }
+        val targetDeviceId: DeviceId? = try {
+            call.request.queryParameters["device-id"]?.let { UUID.fromString(it) }
+        } catch (e: IllegalArgumentException) {
+            call.respond(HttpStatusCode.BadRequest, "Invalid device ID format")
+            return null
+        }
         if (targetDeviceId == null) {
             log(TAG, WARN) { "Caller did not supply target device: $callerDevice" }
             call.respond(HttpStatusCode.BadRequest, "Target device id not supplied")

@@ -33,7 +33,12 @@ class DeviceRoute @Inject constructor(
                 }
             }
             delete("/{deviceId}") {
-                val deviceId: DeviceId? = call.parameters["deviceId"]?.let { UUID.fromString(it) }
+                val deviceId: DeviceId? = try {
+                    call.parameters["deviceId"]?.let { UUID.fromString(it) }
+                } catch (e: IllegalArgumentException) {
+                    call.respond(HttpStatusCode.BadRequest, "Invalid device ID format")
+                    return@delete
+                }
                 if (deviceId == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing deviceId")
                     return@delete
