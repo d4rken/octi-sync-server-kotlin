@@ -82,7 +82,7 @@ class DeviceRepo @Inject constructor(
         }
     }
 
-    suspend fun allDevices(): Collection<Device> = devices.values.toList()
+    fun allDevices(): Collection<Device> = devices.values.toList()
 
     private fun Device.writeDevice() {
         path.resolve(DEVICE_FILENAME).writeText(serializer.encodeToString(data))

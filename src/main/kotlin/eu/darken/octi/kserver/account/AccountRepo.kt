@@ -125,7 +125,7 @@ class AccountRepo @Inject constructor(
         return accounts[id].also { log(TAG, VERBOSE) { "getAccount($id) -> $it" } }
     }
 
-    suspend fun getAccounts(): List<Account> {
+    fun getAccounts(): List<Account> {
         return accounts.values.toList()
     }
 
