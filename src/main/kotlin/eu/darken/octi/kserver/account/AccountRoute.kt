@@ -91,7 +91,14 @@ class AccountRoute @Inject constructor(
                 return
             }
             log(TAG, INFO) { "create($callInfo): Share was valid, let's add the device" }
-            accountRepo.getAccount(share.accountId)!!
+            val resolved = accountRepo.getAccount(share.accountId)
+            if (resolved == null) {
+                log(TAG, ERROR) { "create($callInfo): Account ${share.accountId} disappeared, restoring share" }
+                shareRepo.restoreShare(share)
+                call.respond(HttpStatusCode.InternalServerError, "Account no longer exists")
+                return
+            }
+            resolved
         } else {
             log(TAG, INFO) { "create($callInfo): Creating new account" }
             accountRepo.createAccount()
