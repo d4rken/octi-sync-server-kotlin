@@ -1,6 +1,5 @@
 package eu.darken.octi.kserver.account
 
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import java.nio.file.Path
@@ -10,7 +9,6 @@ import java.util.*
 data class Account(
     val data: Data,
     val path: Path,
-    val sync: Mutex = Mutex(),
 ) {
     val id: AccountId
         get() = data.id
