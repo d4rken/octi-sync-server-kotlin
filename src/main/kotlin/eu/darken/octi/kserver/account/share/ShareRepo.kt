@@ -22,8 +22,6 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.io.path.*
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 
 @Singleton
@@ -91,7 +89,7 @@ class ShareRepo @Inject constructor(
         }
 
         appScope.launch(Dispatchers.IO) {
-            delay(15.seconds)
+            delay(config.shareGCInterval.toMillis() / 10)
             while (currentCoroutineContext().isActive) {
                 log(TAG) { "Checking for stale share data..." }
                 val staleShares = shares.values.filter { !it.path.exists() }
@@ -99,7 +97,7 @@ class ShareRepo @Inject constructor(
                     log(TAG, INFO) { "Removing ${staleShares.size} stale shares" }
                     removeShares(staleShares.map { it.id })
                 }
-                delay(10.minutes)
+                delay(config.shareGCInterval.toMillis())
             }
         }
     }
