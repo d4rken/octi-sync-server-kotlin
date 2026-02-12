@@ -11,13 +11,13 @@ class ClientIpTest {
 
     private fun createRequest(
         remoteAddress: String,
-        forwardedFor: String? = null,
+        realIp: String? = null,
     ): ApplicationRequest {
         val local = mockk<RequestConnectionPoint> {
             every { this@mockk.remoteAddress } returns remoteAddress
         }
         val headers = HeadersBuilder().apply {
-            if (forwardedFor != null) append("X-Forwarded-For", forwardedFor)
+            if (realIp != null) append("X-Real-IP", realIp)
         }.build()
         return mockk {
             every { this@mockk.local } returns local
@@ -32,31 +32,25 @@ class ClientIpTest {
     }
 
     @Test
-    fun `non-loopback ignores X-Forwarded-For`() {
-        val request = createRequest(remoteAddress = "203.0.113.5", forwardedFor = "10.0.0.1")
+    fun `non-loopback ignores X-Real-IP`() {
+        val request = createRequest(remoteAddress = "203.0.113.5", realIp = "10.0.0.1")
         request.clientIp() shouldBe "203.0.113.5"
     }
 
     @Test
-    fun `loopback IPv4 uses X-Forwarded-For`() {
-        val request = createRequest(remoteAddress = "127.0.0.1", forwardedFor = "198.51.100.7")
+    fun `loopback IPv4 uses X-Real-IP`() {
+        val request = createRequest(remoteAddress = "127.0.0.1", realIp = "198.51.100.7")
         request.clientIp() shouldBe "198.51.100.7"
     }
 
     @Test
-    fun `loopback IPv6 uses X-Forwarded-For`() {
-        val request = createRequest(remoteAddress = "0:0:0:0:0:0:0:1", forwardedFor = "198.51.100.7")
+    fun `loopback IPv6 uses X-Real-IP`() {
+        val request = createRequest(remoteAddress = "0:0:0:0:0:0:0:1", realIp = "198.51.100.7")
         request.clientIp() shouldBe "198.51.100.7"
     }
 
     @Test
-    fun `loopback takes first IP from X-Forwarded-For chain`() {
-        val request = createRequest(remoteAddress = "127.0.0.1", forwardedFor = "198.51.100.7, 10.0.0.1")
-        request.clientIp() shouldBe "198.51.100.7"
-    }
-
-    @Test
-    fun `loopback without X-Forwarded-For falls back to connection IP`() {
+    fun `loopback without X-Real-IP falls back to connection IP`() {
         val request = createRequest(remoteAddress = "127.0.0.1")
         request.clientIp() shouldBe "127.0.0.1"
     }

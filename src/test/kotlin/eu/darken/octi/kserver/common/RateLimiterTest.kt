@@ -58,15 +58,15 @@ class RateLimiterTest : TestRunner() {
     }
 
     @Test
-    fun `test different X-Forwarded-For from trusted proxy have separate rate limits`() = runTest2(
+    fun `test different X-Real-IP from trusted proxy have separate rate limits`() = runTest2(
         appConfig = baseConfig.copy(
             rateLimit = RateLimitConfig(limit = 2, resetTime = Duration.ofSeconds(5))
         )
     ) {
-        // Tests connect via loopback (trusted proxy), so X-Forwarded-For is used
+        // Tests connect via loopback (trusted proxy), so X-Real-IP is used
         repeat(2) {
             http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.1")
+                header("X-Real-IP", "192.168.1.1")
             }.apply {
                 status shouldBe HttpStatusCode.OK
             }
@@ -75,7 +75,7 @@ class RateLimiterTest : TestRunner() {
 
         // 192.168.1.1 is exhausted
         http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.1")
+            header("X-Real-IP", "192.168.1.1")
         }.apply {
             status shouldBe HttpStatusCode.TooManyRequests
         }
@@ -84,7 +84,7 @@ class RateLimiterTest : TestRunner() {
         // 192.168.1.2 should still have its own limit
         repeat(2) {
             http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.2")
+                header("X-Real-IP", "192.168.1.2")
             }.apply {
                 status shouldBe HttpStatusCode.OK
             }
@@ -101,7 +101,7 @@ class RateLimiterTest : TestRunner() {
         // Exhaust rate limit for an IP
         repeat(2) {
             http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.1")
+                header("X-Real-IP", "192.168.1.1")
             }.apply {
                 status shouldBe HttpStatusCode.OK
             }
@@ -109,7 +109,7 @@ class RateLimiterTest : TestRunner() {
         }
 
         http.get("/v1/status") {
-            header("X-Forwarded-For", "192.168.1.1")
+            header("X-Real-IP", "192.168.1.1")
         }.apply {
             status shouldBe HttpStatusCode.TooManyRequests
         }
@@ -121,7 +121,7 @@ class RateLimiterTest : TestRunner() {
         // Should be able to make requests again since entries were cleaned up
         repeat(2) {
             http.get("/v1/status") {
-                header("X-Forwarded-For", "192.168.1.1")
+                header("X-Real-IP", "192.168.1.1")
             }.apply {
                 status shouldBe HttpStatusCode.OK
             }
