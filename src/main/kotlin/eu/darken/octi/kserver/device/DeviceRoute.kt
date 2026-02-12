@@ -75,11 +75,11 @@ class DeviceRoute @Inject constructor(
         val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
         val targetDevice = deviceRepo.getDevice(deviceId)
         if (targetDevice == null) {
-            call.respond(HttpStatusCode.NotFound) { "Device not found $deviceId" }
+            call.respond(HttpStatusCode.NotFound, "Device not found $deviceId")
             return
         }
         if (targetDevice.accountId != callerDevice.accountId) {
-            call.respond(HttpStatusCode.Unauthorized) { "Device does not belong to your account" }
+            call.respond(HttpStatusCode.Unauthorized, "Device does not belong to your account")
             return
         }
 
