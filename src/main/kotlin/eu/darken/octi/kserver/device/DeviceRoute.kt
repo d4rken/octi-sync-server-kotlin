@@ -93,20 +93,26 @@ class DeviceRoute @Inject constructor(
 
     private suspend fun RoutingContext.resetDevices() {
         val callerDevice = verifyCaller(TAG, deviceRepo) ?: return
+        val requestedTargets = call.receive<ResetRequest>().targets
 
-        var targetDevices = call.receive<ResetRequest>().targets
-            .map { deviceRepo.getDevice(it)!! }
-            .toSet()
-
-
-        if (targetDevices.any { it.accountId != callerDevice.accountId }) {
-            call.respond(HttpStatusCode.Unauthorized) { "Devices do not belong to your account" }
-            return
-        }
-
-        if (targetDevices.isEmpty()) {
+        val targetDevices: Set<Device> = if (requestedTargets.isEmpty()) {
             log(TAG) { "No explicit targets provided, targeting all devices of this account." }
-            targetDevices = deviceRepo.getDevices(callerDevice.accountId).toSet()
+            deviceRepo.getDevices(callerDevice.accountId).toSet()
+        } else {
+            val resolved = mutableSetOf<Device>()
+            for (id in requestedTargets) {
+                val device = deviceRepo.getDevice(id)
+                if (device == null) {
+                    call.respond(HttpStatusCode.NotFound, "Device not found: $id")
+                    return
+                }
+                resolved.add(device)
+            }
+            if (resolved.any { it.accountId != callerDevice.accountId }) {
+                call.respond(HttpStatusCode.Forbidden, "Devices do not belong to your account")
+                return
+            }
+            resolved
         }
 
         log(TAG, INFO) { "resetDevices(${callInfo}): Resetting devices ${targetDevices.map { it.id }}" }
