@@ -49,17 +49,24 @@ fun Application.installRateLimit(config: RateLimitConfig) {
         val now = Instant.now()
         val calldetails = "${call.request.httpMethod.value} ${call.request.uri}"
 
-        val rateState = rateLimitCache[clientIp] ?: ClientRateState(id = clientIp, resetAt = now + config.resetTime)
+        var blocked = false
+        rateLimitCache.compute(clientIp) { _, existing ->
+            val state = existing ?: ClientRateState(id = clientIp, resetAt = now + config.resetTime)
+            when {
+                now.isAfter(state.resetAt) -> ClientRateState(clientIp, 1, now + config.resetTime)
+                state.requests >= config.limit -> {
+                    blocked = true
+                    state
+                }
+                else -> state.copy(requests = state.requests + 1)
+            }
+        }
 
-        if (now.isAfter(rateState.resetAt)) {
-            rateLimitCache[clientIp] = ClientRateState(clientIp, 1, now + config.resetTime)
-        } else if (rateState.requests >= config.limit) {
-            log(TAG, WARN) { "Rate limits exceeded by $rateState -- $calldetails" }
+        if (blocked) {
+            log(TAG, WARN) { "Rate limits exceeded by $clientIp -- $calldetails" }
             call.respond(HttpStatusCode.TooManyRequests, "Rate limit exceeded. Try again later.")
             finish()
             return@intercept
-        } else {
-            rateLimitCache[clientIp] = rateState.copy(requests = rateState.requests + 1)
         }
     }
 }
