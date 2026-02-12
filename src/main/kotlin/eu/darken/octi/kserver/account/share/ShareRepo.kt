@@ -150,6 +150,15 @@ class ShareRepo @Inject constructor(
         }
     }
 
+    suspend fun restoreShare(share: Share) = mutex.withLock {
+        share.path.run {
+            if (!parent.exists()) Files.createDirectory(parent)
+            writeText(serializer.encodeToString(share.data))
+        }
+        shares[share.id] = share
+        log(TAG) { "restoreShare(${share.id}): Share restored" }
+    }
+
     suspend fun removeSharesForAccount(accountId: AccountId) {
         log(TAG) { "removeSharesForAccount($accountId)..." }
         val toRemove = shares.filter { it.value.accountId == accountId }.map { it.key }

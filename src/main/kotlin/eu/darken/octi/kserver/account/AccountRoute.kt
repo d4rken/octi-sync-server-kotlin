@@ -73,15 +73,19 @@ class AccountRoute @Inject constructor(
         }
 
         // Try linking device to account
-        val account = if (shareCode != null) {
-            val share = shareRepo.getShare(shareCode)
-            if (share == null) {
-                log(TAG, WARN) { "create($callInfo): Could not resolve ShareCode" }
-                call.respond(HttpStatusCode.Forbidden, "Invalid ShareCode")
-                return
-            }
+        val share = if (shareCode != null) {
+            shareRepo.getShare(shareCode).also {
+                if (it == null) {
+                    log(TAG, WARN) { "create($callInfo): Could not resolve ShareCode" }
+                    call.respond(HttpStatusCode.Forbidden, "Invalid ShareCode")
+                }
+            } ?: return
+        } else {
+            null
+        }
 
-            if (!shareRepo.consumeShare(shareCode)) {
+        val account = if (share != null) {
+            if (!shareRepo.consumeShare(shareCode!!)) {
                 log(TAG, ERROR) { "create($callInfo): Failed to consume Share" }
                 call.respond(HttpStatusCode.InternalServerError, "ShareCode was already consumed")
                 return
@@ -89,16 +93,23 @@ class AccountRoute @Inject constructor(
             log(TAG, INFO) { "create($callInfo): Share was valid, let's add the device" }
             accountRepo.getAccount(share.accountId)!!
         } else {
-            // Normal account creation
             log(TAG, INFO) { "create($callInfo): Creating new account" }
             accountRepo.createAccount()
         }
-        // TODO can share be consumed and then error prevents creation?
-        device = deviceRepo.createDevice(
-            deviceId = deviceId,
-            account = account,
-            version = call.request.headers["User-Agent"],
-        )
+
+        device = try {
+            deviceRepo.createDevice(
+                deviceId = deviceId,
+                account = account,
+                version = call.request.headers["User-Agent"],
+            )
+        } catch (e: Exception) {
+            if (share != null) {
+                log(TAG, ERROR) { "create($callInfo): Device creation failed, restoring share: ${e.asLog()}" }
+                shareRepo.restoreShare(share)
+            }
+            throw e
+        }
 
         val response = RegisterResponse(
             accountID = device.accountId,
