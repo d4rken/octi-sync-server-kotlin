@@ -3,6 +3,7 @@ package eu.darken.octi.kserver.device
 import eu.darken.octi.kserver.account.AccountId
 import eu.darken.octi.kserver.common.generateRandomKey
 import kotlinx.coroutines.sync.Mutex
+import java.security.MessageDigest
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import java.nio.file.Path
@@ -17,7 +18,11 @@ data class Device(
     val sync: Mutex = Mutex(),
 ) {
     fun isAuthorized(credentials: DeviceCredentials): Boolean {
-        return accountId == credentials.accountId && data.password == credentials.devicePassword
+        return accountId == credentials.accountId &&
+            MessageDigest.isEqual(
+                data.password.toByteArray(),
+                credentials.devicePassword.toByteArray()
+            )
     }
 
     val id: DeviceId
