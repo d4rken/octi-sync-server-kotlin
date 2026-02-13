@@ -2,8 +2,10 @@ package eu.darken.octi.kserver
 
 import eu.darken.octi.kserver.account.AccountRoute
 import eu.darken.octi.kserver.account.share.ShareRoute
+import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.ERROR
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.INFO
 import eu.darken.octi.kserver.common.debug.logging.Logging.Priority.WARN
+import eu.darken.octi.kserver.common.debug.logging.asLog
 import eu.darken.octi.kserver.common.debug.logging.log
 import eu.darken.octi.kserver.common.debug.logging.logTag
 import eu.darken.octi.kserver.common.installCallLogging
@@ -13,12 +15,17 @@ import eu.darken.octi.kserver.device.DeviceRoute
 import eu.darken.octi.kserver.module.ModuleRoute
 import eu.darken.octi.kserver.myip.MyIpRoute
 import eu.darken.octi.kserver.status.StatusRoute
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import javax.inject.Inject
@@ -44,6 +51,28 @@ class Server @Inject constructor(
                     isLenient = true
                     serializersModule = serializers
                 })
+            }
+
+            install(StatusPages) {
+                exception<CancellationException> { _, cause -> throw cause }
+                exception<BadRequestException> { call, cause ->
+                    log(TAG, WARN) { "Bad request: ${cause.message}" }
+                    if (!call.response.isCommitted) {
+                        call.respond(HttpStatusCode.BadRequest, "Bad request")
+                    }
+                }
+                exception<PayloadTooLargeException> { call, _ ->
+                    if (!call.response.isCommitted) {
+                        call.respond(HttpStatusCode.PayloadTooLarge)
+                    }
+                }
+                exception<Throwable> { call, cause ->
+                    if (cause is Error) throw cause
+                    log(TAG, ERROR) { "Unhandled exception: ${cause.asLog()}" }
+                    if (!call.response.isCommitted) {
+                        call.respond(HttpStatusCode.InternalServerError, "Internal server error")
+                    }
+                }
             }
 
             config.rateLimit

@@ -80,7 +80,7 @@ class ModuleRoute @Inject constructor(
 
         if (callerDevice.accountId != target.accountId) {
             log(TAG, ERROR) { "Devices don't share the same account: $callerDevice and $target" }
-            call.respond(HttpStatusCode.Unauthorized, "Devices don't share the same account")
+            call.respond(HttpStatusCode.Forbidden, "Devices don't share the same account")
             return null
         }
 

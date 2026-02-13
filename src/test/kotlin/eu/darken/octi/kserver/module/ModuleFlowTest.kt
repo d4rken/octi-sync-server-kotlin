@@ -71,7 +71,7 @@ class ModuleFlowTest : TestRunner() {
         val creds1 = createDevice()
         val creds2 = createDevice()
         readModuleRaw(creds1, "abc", creds2.deviceId).apply {
-            status shouldBe HttpStatusCode.Unauthorized
+            status shouldBe HttpStatusCode.Forbidden
             bodyAsText() shouldBe "Devices don't share the same account"
         }
     }
@@ -133,7 +133,7 @@ class ModuleFlowTest : TestRunner() {
         val creds1 = createDevice()
         val creds2 = createDevice()
         writeModule(creds2, "abc", creds1.deviceId, "test").apply {
-            status shouldBe HttpStatusCode.Unauthorized
+            status shouldBe HttpStatusCode.Forbidden
             bodyAsText() shouldBe "Devices don't share the same account"
         }
         writeModule(creds2, "abc", creds1.deviceId, "test")
@@ -191,7 +191,7 @@ class ModuleFlowTest : TestRunner() {
         val creds1 = createDevice()
         val creds2 = createDevice()
         deleteModuleRaw(creds2, "abc", creds1.deviceId).apply {
-            status shouldBe HttpStatusCode.Unauthorized
+            status shouldBe HttpStatusCode.Forbidden
             bodyAsText() shouldBe "Devices don't share the same account"
         }
     }

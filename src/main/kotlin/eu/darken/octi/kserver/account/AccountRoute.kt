@@ -87,7 +87,7 @@ class AccountRoute @Inject constructor(
         val account = if (share != null) {
             if (!shareRepo.consumeShare(shareCode!!)) {
                 log(TAG, ERROR) { "create($callInfo): Failed to consume Share" }
-                call.respond(HttpStatusCode.InternalServerError, "ShareCode was already consumed")
+                call.respond(HttpStatusCode.Forbidden, "ShareCode was already consumed")
                 return
             }
             log(TAG, INFO) { "create($callInfo): Share was valid, let's add the device" }
@@ -95,7 +95,7 @@ class AccountRoute @Inject constructor(
             if (resolved == null) {
                 log(TAG, ERROR) { "create($callInfo): Account ${share.accountId} disappeared, restoring share" }
                 shareRepo.restoreShare(share)
-                call.respond(HttpStatusCode.InternalServerError, "Account no longer exists")
+                call.respond(HttpStatusCode.Forbidden, "Account no longer exists")
                 return
             }
             resolved
